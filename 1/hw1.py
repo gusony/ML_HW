@@ -10,7 +10,7 @@ train_y = []
 test_x = []
 test_y = []
 LR = lambda vec_x, w: np.dot(vec_x,two_d_matrix_tolist(w))
-test_lamb = 0.001
+test_lamb = 0.1
 
 
 def one_row_product(data_array, order): # each X product []
@@ -104,7 +104,7 @@ R_W3 = pinv(lamb_identity(test_lamb, M3_X.shape[1]) + M3_X.T*M3_X)*M3_X.T*train_
 
 ########################################################################
 #LR = lambda vec_x, w: np.dot(vec_x,w)
-test_data=[710,550,2.8882]
+test_data=[880,322,8.3252]
 print( LR(one_row_product(test_data, 1), W1)) #測試一筆資料
 print( LR(one_row_product(test_data, 1), R_W1))
 print( LR(one_row_product(test_data, 2), W2))
