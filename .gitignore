@@ -1,0 +1,5 @@
+*.swp
+.DS_Store
+*Icon*
+./**/desktop.ini
+desktop.ini
