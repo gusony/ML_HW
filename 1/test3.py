@@ -9,6 +9,9 @@ def two_d_matrix_tolist(X):
       temp.append(j)
   return(temp)
 
+X = np.matrix([[1]])
+print(two_d_matrix_tolist(X))
+
 '''
 X = [[1,2,3],[4,5,6],[7,8,9],[10,11,12],[151,156,126]]
 target_matrix = np.matrix([[13],[14],[15],[16],[20]])
