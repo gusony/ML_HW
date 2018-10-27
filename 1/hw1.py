@@ -3,6 +3,7 @@ import numpy as np
 from numpy.linalg import pinv
 from sympy import *
 import matplotlib.pyplot as plt
+import numpy.linalg
 
 
 #init variable
@@ -25,7 +26,6 @@ M3_Y = []
 LR = lambda vec_x, w: np.dot(vec_x,two_d_matrix_tolist(w))
 #vec_x : list
 #two_d_matrix_tolist(W1) :list
-test_lamb = 0.1
 
 
 def one_row_product(data_array, order): # each X product []
@@ -76,7 +76,7 @@ def rms_error(pred_y, ture_y):
   return E_rms
 
 def reg_rms_error(pred_y, ture_y,lamda,w):
-  E_W = 0.5 * np.sum(np.power(pred_y - ture_y , 2)) +  0.5*lamda*two_d_matrix_tolist(w.T*w)[0]
+  E_W = 0.5 * np.sum(np.power(pred_y - ture_y , 2)) #+  0.5*lamda*two_d_matrix_tolist(w.T*w)[0]
   E_rms = np.sqrt(2*E_W/len(pred_y))
   return E_rms
 
@@ -129,57 +129,67 @@ predY_no_mi = get_dm(test_no_mi,3)* W3_train_no_mi
 
 part2_err_list =[rms_error(predY_no_tr,test_Y), rms_error(predY_no_pr,test_Y), rms_error(predY_no_mi,test_Y)]
 f, part2_f = plt.subplots()
+part2_f.set_title('Part2')
 part2_f.scatter(['no_tr','no_pr','no_mi'],part2_err_list)
 
 
 #######################################################################
-# m=1
 M1_X = get_dm(train_x,1) #(18576,4)
-W1 = pinv(M1_X) * train_Y # W1 is M=1  W #shape (4,1)
-R_W1 = pinv(get_lambIM(test_lamb, M1_X.shape[1]) + M1_X.T*M1_X)*M1_X.T*train_Y #(4,1)
-predY_M1 = get_dm(test_x,1)* W1
-
-########################################################################
-# m=2
-M2_X = get_dm(train_x,2) #(18576,13)
-W2 = pinv(M2_X) * train_Y #(13,1)
-R_W2 = pinv(get_lambIM(test_lamb, M2_X.shape[1]) + M2_X.T*M2_X)*M2_X.T*train_Y
-predY_M2 = get_dm(test_x,2)* W2
-
-########################################################################
-# m=3
+M2_X = get_dm(train_x,2)
 M3_X = get_dm(train_x,3)
-W3 = pinv(M3_X) * train_Y
-R_W3 = pinv(get_lambIM(test_lamb, M3_X.shape[1]) + M3_X.T*M3_X)*M3_X.T*train_Y
-predY_M3 = get_dm(test_x,3)* W3
 
+W1 = pinv(M1_X) * train_Y # W1 is M=1  W #shape (4,1)
+W2 = pinv(M2_X) * train_Y #(13,1)
+W3 = pinv(M3_X) * train_Y
+
+#predY_M1 = get_dm(train_x,1)* W1
+#predY_M2 = get_dm(train_x,2)* W2
+#predY_M3 = get_dm(train_x,3)* W3
+
+Erms_list_train = [rms_error(get_dm(train_x,1)* W1, train_Y), rms_error(get_dm(train_x,2)* W2, train_Y), rms_error(get_dm(train_x,3)* W3, train_Y)]
+Erms_list_test  = [rms_error(get_dm(test_x,1) * W1, test_Y) , rms_error(get_dm(test_x,2) * W2, test_Y) , rms_error(get_dm(test_x ,3)* W3, test_Y)]
 
 ########################################################################
-Erms_list =[rms_error(predY_M1,test_Y), rms_error(predY_M2, test_Y),rms_error(predY_M3, test_Y)]
-print('Erms_list:',Erms_list)
-print('-------------------------')
+test_lamb = 0.1
+R_W1 = pinv(get_lambIM(test_lamb, M1_X.shape[1]) + M1_X.T*M1_X) * M1_X.T * train_Y
+#R_W1 = numpy.linalg.solve(get_lambIM(test_lamb, M2_X.shape[1]) + M2_X.T*M2_X)
+R_W2 = pinv(get_lambIM(test_lamb, M2_X.shape[1]) + M2_X.T*M2_X) * M2_X.T * train_Y
+R_W3 = pinv(get_lambIM(test_lamb, M3_X.shape[1]) + M3_X.T*M3_X) * M3_X.T * train_Y
+reg_rms_error_list_01_test  = [rms_error(get_dm(test_x,1)*R_W1, test_Y), rms_error(get_dm(test_x,2)*R_W2,test_Y), rms_error(get_dm(test_x,3)*R_W3,test_Y)]
+reg_rms_error_list_01_train = [rms_error(get_dm(train_x,1)*R_W1, train_Y), rms_error(get_dm(train_x,2)*R_W2,train_Y), rms_error(get_dm(train_x,3)*R_W3,train_Y)]
 
-reg_rms_error_list_01 = [reg_rms_error(np.matrix(get_predY_matrix(1,R_W1, test_x)),test_Y, test_lamb, R_W1),reg_rms_error(np.matrix(get_predY_matrix(2,R_W2, test_x)),test_Y, test_lamb, R_W2),reg_rms_error(np.matrix(get_predY_matrix(3,R_W3, test_x)),test_Y, test_lamb, R_W3)]
-print('reg_rms_error_list_01',reg_rms_error_list_01)
-print('-------------------------')
 
 test_lamb = 0.001
-reg_rms_error_list_0001 = [reg_rms_error(np.matrix(get_predY_matrix(1,R_W1, test_x)),test_Y, test_lamb, R_W1),reg_rms_error(np.matrix(get_predY_matrix(2,R_W2, test_x)),test_Y, test_lamb, R_W2),reg_rms_error(np.matrix(get_predY_matrix(3,R_W3, test_x)),test_Y, test_lamb, R_W3)]
-print('reg_rms_error_list_0001',reg_rms_error_list_0001)
+R_W1 = pinv(get_lambIM(test_lamb, M1_X.shape[1]) + M1_X.T*M1_X)*M1_X.T*train_Y
+R_W2 = pinv(get_lambIM(test_lamb, M2_X.shape[1]) + M2_X.T*M2_X)*M2_X.T*train_Y
+R_W3 = pinv(get_lambIM(test_lamb, M3_X.shape[1]) + M3_X.T*M3_X)*M3_X.T*train_Y
+reg_rms_error_list_0001_test = [reg_rms_error(get_dm(test_x,1)*R_W1,test_Y, test_lamb, R_W1),reg_rms_error(get_dm(test_x,2)*R_W2,test_Y, test_lamb, R_W2), reg_rms_error(get_dm(test_x,3)*R_W3,test_Y, test_lamb, R_W3)]
+reg_rms_error_list_0001_train = [reg_rms_error(get_dm(train_x,1)*R_W1,train_Y, test_lamb, R_W1),reg_rms_error(get_dm(train_x,2)*R_W2,train_Y, test_lamb, R_W2), reg_rms_error(get_dm(train_x,3)*R_W3,train_Y, test_lamb, R_W3)]
+
+
+#  np.matrix(get_predY_matrix(1,R_W1, test_x))
 ##########################################################################
 M = [1,2,3]
-plt.title('E_RMS M=1 to M=3')
-plt.xlabel('M(order)')
-plt.ylabel('E_RMS')
-
-# plt.scatter(M, Erms_list,c='b',label='Err(no '+u"\u03BB"+')')
-# plt.scatter(M, reg_rms_error_list_01,c='r',marker='^',label='Reg Err('+u"\u03BB"+'=0.1)')
-# plt.scatter(M, reg_rms_error_list_0001,c='g',marker='*',label='Reg Err('+u"\u03BB"+'=0.001)')
+f, (erms_train, erms_test) = plt.subplots(1,2)
+erms_train.set_title('Erms_train')
+erms_test.set_title('Erms_test')
+erms_train.scatter(M,Erms_list_train)
+erms_test.scatter(M,Erms_list_test)
 
 
-f, (erms, RErms01, RErms0001) = plt.subplots(1,3)
-erms.scatter(M, Erms_list,c='b',label='Err(no '+u"\u03BB"+')')
-RErms01.scatter(M, reg_rms_error_list_01,c='r',marker='^',label='Reg Err('+u"\u03BB"+'=0.1)')
-RErms0001.scatter(M, reg_rms_error_list_0001,c='g',marker='*',label='Reg Err('+u"\u03BB"+'=0.001)')
-plt.legend(loc='upper right')
+f, (RErms01_train, RErms0001_train, RErms01_test, RErms0001_test ) = plt.subplots(1,4)
+RErms01_train.set_title('Reg Err  (train set,'+u"\u03BB"+'=0.1)')
+RErms0001_train.set_title('Reg Err (train set,'+u"\u03BB"+'=0.001)')
+RErms01_test.set_title('Reg Err (test set,'+u"\u03BB"+'=0.1)')
+RErms0001_test.set_title('Reg Err (test set,'+u"\u03BB"+'=0.001)')
+
+RErms01_train.scatter(M, reg_rms_error_list_01_train)
+RErms0001_train.scatter(M, reg_rms_error_list_0001_train)
+RErms01_test.scatter(M, reg_rms_error_list_01_test)
+RErms0001_test.scatter(M, reg_rms_error_list_0001_test)
+
+#print(Erms_list_train)
+#print(reg_rms_error_list_01_test)
+#print(reg_rms_error_list_0001_test)
+
 plt.show()
