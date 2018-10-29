@@ -89,6 +89,33 @@ def get_lambIM(lamb, shape): #get_lamb_identity_matrix #lambda 單位矩陣
     result.append(temp)
   return(np.matrix(result))
 
+def get_ext_matrix(lamb,shape):
+    temp = []
+    for i in range(shape):
+        temp2 = []
+        for j in range(shape):
+            if i == j:
+                temp2.append(lamb)
+            else:
+                temp2.append(0)
+        temp.append(temp2)
+    return(np.array(temp))
+
+def Gaussian_Inverse(matrix):
+  dimension=matrix.shape[0]
+  diagnoal=np.eye(dimension)
+  for d in range(dimension):
+    temp=matrix[d][d]
+    for c in range(dimension):
+      matrix[d][c]=matrix[d][c]/temp
+      diagnoal[d][c]=diagnoal[d][c]/temp
+    for r in range(dimension):
+      mu=-matrix[r][d]
+      if(r!=d):
+        for c in range(dimension):
+          matrix[r][c]=matrix[d][c]*mu+matrix[r][c]
+          diagnoal[r][c]=diagnoal[d][c]*mu+diagnoal[r][c]
+  return diagnoal
 
 # 開啟 CSV 檔案
 with open('train.csv', newline='') as trainfile:
@@ -151,10 +178,14 @@ Erms_list_test  = [rms_error(get_dm(test_x,1) * W1, test_Y) , rms_error(get_dm(t
 
 ########################################################################
 test_lamb = 0.1
-R_W1 = pinv(get_lambIM(test_lamb, M1_X.shape[1]) + M1_X.T*M1_X) * M1_X.T * train_Y
-#R_W1 = numpy.linalg.solve(get_lambIM(test_lamb, M2_X.shape[1]) + M2_X.T*M2_X)
-R_W2 = pinv(get_lambIM(test_lamb, M2_X.shape[1]) + M2_X.T*M2_X) * M2_X.T * train_Y
-R_W3 = pinv(get_lambIM(test_lamb, M3_X.shape[1]) + M3_X.T*M3_X) * M3_X.T * train_Y
+R_W1 = np.dot(np.dot(pinv(get_ext_matrix(test_lamb, M1_X.shape[1]) + M1_X.T*M1_X) , M1_X.T) , train_Y)
+R_W2 = pinv(get_ext_matrix(test_lamb, M2_X.shape[1]) + M2_X.T*M2_X) * M2_X.T * train_Y
+R_W3 = pinv(get_ext_matrix(test_lamb, M3_X.shape[1]) + M3_X.T*M3_X) * M3_X.T * train_Y
+print(R_W1)
+print()
+print(R_W2)
+print()
+#print(R_W3)
 reg_rms_error_list_01_test  = [rms_error(get_dm(test_x,1)*R_W1, test_Y), rms_error(get_dm(test_x,2)*R_W2,test_Y), rms_error(get_dm(test_x,3)*R_W3,test_Y)]
 reg_rms_error_list_01_train = [rms_error(get_dm(train_x,1)*R_W1, train_Y), rms_error(get_dm(train_x,2)*R_W2,train_Y), rms_error(get_dm(train_x,3)*R_W3,train_Y)]
 
