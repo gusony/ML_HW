@@ -16,6 +16,11 @@ s = 0.1
 def sigmoid_func(x):
     return(1/(1+math.exp(x)))
 
+def SN(phi_matrix):
+    result_sn = phi_matrix.T * phi_matrix
+    result_sn = result_sn + 10**-6*np.eye(result_sn.shape[0])
+    return(result_sn)
+
 
 #read data
 with open('1_data.csv', newline='') as trainfile:
