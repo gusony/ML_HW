@@ -22,6 +22,10 @@ def SN(phi_matrix):
     return(result_sn)
 
 
+def mN(phi_matrix,SN):
+    return(SN.dot(phi_matrix.T * np.matrix(origin_t)))
+
+
 #read data
 with open('1_data.csv', newline='') as trainfile:
     rows = csv.reader(trainfile)
