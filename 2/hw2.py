@@ -13,6 +13,7 @@ N_list = [10]#,15,30,80]
 M = 7
 s = 0.1
 
+################################################################################
 def sigmoid_func(x):
     return(1/(1+math.exp(x)))
 
@@ -21,10 +22,18 @@ def SN(phi_matrix):
     result_sn = result_sn + 10**-6*np.eye(result_sn.shape[0])
     return(result_sn)
 
-
 def mN(phi_matrix,SN):
     return(SN.dot(phi_matrix.T * np.matrix(origin_t)))
 
+def get_phi_matrix(): #return np.matrix
+    temp1 = []
+    for i in origin_x:
+        temp2 = []
+        for j in range(M):
+            temp2.append(sigmoid_func( (i-(4*j/M))/0.1 ))
+        temp1.append(temp2)
+    return(np.matrix(temp1))
+################################################################################
 
 #read data
 with open('1_data.csv', newline='') as trainfile:
@@ -38,15 +47,8 @@ for N in N_list:
     SN_matrix = np.matrix([])
     mN_matrix = np.matrix([])
 
-    temp1 = []
-    #parpaer phi array
-    for i in origin_x:
-        #print(i)
-        temp2 = []
-        for j in range(M):
-            temp2.append(sigmoid_func( (i-(4*j/M))/0.1 ))
-        temp1.append(temp2)
-    phi_j_of_x_matrix = np.matrix(temp1)
+
+    phi_j_of_x_matrix = get_phi_matrix()
     print(phi_j_of_x_matrix.shape)
     #print(N)
     #SN_matrix = SN(np.matrix(phi_j_of_x))
