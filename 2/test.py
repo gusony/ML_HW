@@ -8,17 +8,19 @@ import matplotlib.pyplot as plt
 import numpy.linalg
 import math
 
-print(10**-6*np.eye(2))
 
+a =  np.array([[1,2,],[3,4]])
 
-a = np.matrix([[1,2],[3,4]])
-b = np.matrix([[5,6],[7,8]])
-print(a.dot(b))
-print (c)
+print(a.flatten())
+# mean = np.array([0, 0])
+# cov = np.matrix([[1, 0], [0, 100]])
+# print(mean.shape,cov.shape)
+# x, y = np.random.multivariate_normal(mean, cov, 5000).T
+# print(np.random.multivariate_normal(mean, cov, 5000).shape)
+# print(x)
+# print()
 
-#mean = [0, 0]
-#cov = [[1, 0], [0, 100]]  # diagonal covariance
-#x, y = np.random.multivariate_normal(mean, cov, 5000).T
-#plt.plot(x, y, 'x')
-#plt.axis('equal')
-#plt.show()
+# print(y)
+# plt.plot(x, y, 'x')
+# plt.axis('equal')
+# plt.show()

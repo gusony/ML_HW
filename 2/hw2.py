@@ -10,7 +10,7 @@ import math
 
 Raw_data_x = []
 Raw_data_t = []
-N_list = [10]#,15,30,80]
+N_list = [10,15,30,80]
 M = 7
 s = 0.1
 
@@ -23,10 +23,17 @@ def get_phi_matrix(x_list): #return np.matrix
     for i in x_list:
         temp = []
         for j in range(M):
-            temp.append(sigmoid_func( (i-(4*j/M))/0.1 ))
-        print( ((i-(4*j/M))/0.1 ), temp[j])
+            temp.append(sigmoid_func( (i-(4*j/M))/s ))
         result.append(temp)
     return(np.matrix(result))
+def comp_pred_curve(fplt,x,w):
+    t = []
+    for i in x:
+        a = 0
+        for j in range(7):
+            a = a +sigmoid_func( (i-(4*j/M))/s ) * w[j]
+        t.append(a)
+    fplt.plot(x,t,'-')
 
 def SN(phi_matrix):
     #phi_matrix (N, 7)
@@ -57,28 +64,29 @@ for N in N_list:
     phi_j_of_x_matrix = np.matrix([])
     SN_matrix = np.matrix([])
     mN_matrix = np.matrix([])
-    sample_x = []
-    sample_t = []
     part1_2[N_list.index(N)].set_title('N='+str(N))
 
-    for i in range(N): # data set size [10,15,30,80]
-        sample_x.append(Raw_data_x[i])
-        sample_t.append(Raw_data_t[i])
+    sample_x = Raw_data_x[0:N]
+    sample_t = Raw_data_t[0:N]
 
     phi_j_of_x_matrix = get_phi_matrix(sample_x)
-    SN_matrix = SN(phi_j_of_x_matrix) #print(np.array(SN_matrix.shape)) # (7,7)
+    SN_matrix = SN(phi_j_of_x_matrix)
     mN_matrix = mN(phi_j_of_x_matrix, SN_matrix, sample_t)
-
     mN_list = np.array(mN_matrix).flatten()
 
-
-
+    #test x range
     x = np.arange(min(Raw_data_x)-1, max(Raw_data_x)+1, 0.01)
-    for i in range(5): # 5 curve
+
+    #sample 5 curve
+    for i in range(5):
         #np.poly1d : input W, return linear function
-        line = np.poly1d(np.random.multivariate_normal(mN_list, SN_matrix).T)
-        part1_2[N_list.index(N)].plot(x, line(x), '-')
-        part1_2[N_list.index(N)].plot(sample_x, sample_t, '.')
+        #print(np.random.multivariate_normal(mN_list, SN_matrix).flatten())
+        #line = np.poly1d(np.random.multivariate_normal(mN_list, SN_matrix).flatten())
+        comp_pred_curve(part1_2[N_list.index(N)], x, np.random.multivariate_normal(mN_list, SN_matrix).flatten())
+        #print(line)
+
+        #print()
+        #part1_2[N_list.index(N)].plot(x, line(x), '-')
 
 plt.show()
 
