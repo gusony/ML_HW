@@ -26,7 +26,8 @@ def get_phi_matrix(x_list): #return np.matrix
             temp.append(sigmoid_func( (i-(4*j/M))/s ))
         result.append(temp)
     return(np.matrix(result))
-def comp_pred_curve(fplt,x,w):
+
+def draw_one_pred_curve(fplt, x, w):
     t = []
     for i in x:
         a = 0
@@ -34,6 +35,28 @@ def comp_pred_curve(fplt,x,w):
             a = a +sigmoid_func( (i-(4*j/M))/s ) * w[j]
         t.append(a)
     fplt.plot(x,t,'-')
+
+def Q1_p3(fplt, x_list, mN_list, SN_matrix):
+    mean_curve_t = []
+    var = []
+    one_X_distri = []
+    positive_curve = []
+    negative_curve = []
+
+    for x in x_list:
+        sigmoid_one_x = []
+        for j in range(M):
+            sigmoid_one_x.append(sigmoid_func((x-(4*j/M))/s))
+        t = []
+        w = []
+        for sampling in range(10000): #sampling 1000 times
+            w = np.random.multivariate_normal(mN_list, SN_matrix).flatten() # type( np.ndarray )
+            t.append(sum(i[0] * i[1] for i in zip(sigmoid_one_x, w)))
+
+        mean_curve_t.append(np.mean(np.array(t)))
+        var.append(np.std(np.array(t)))
+
+    fplt.plot(x_list,mean_curve_t,'-')
 
 def SN(phi_matrix):
     #phi_matrix (N, 7)
@@ -58,6 +81,7 @@ with open('1_data.csv', newline='') as trainfile:
 #init plot
 #for question 1-2:
 f,part1_2 = plt.subplots(1,4)
+f,part1_3 = plt.subplots(1,4)
 
 
 for N in N_list:
@@ -65,32 +89,31 @@ for N in N_list:
     SN_matrix = np.matrix([])
     mN_matrix = np.matrix([])
     part1_2[N_list.index(N)].set_title('N='+str(N))
+    part1_3[N_list.index(N)].set_title('N='+str(N))
 
     sample_x = Raw_data_x[0:N]
     sample_t = Raw_data_t[0:N]
 
+    #Q1 part1
     phi_j_of_x_matrix = get_phi_matrix(sample_x)
-    SN_matrix = SN(phi_j_of_x_matrix)
-    mN_matrix = mN(phi_j_of_x_matrix, SN_matrix, sample_t)
+    SN_matrix = SN(phi_j_of_x_matrix) #covariance matrix
+    mN_matrix = mN(phi_j_of_x_matrix, SN_matrix, sample_t) #mean vector
     mN_list = np.array(mN_matrix).flatten()
 
     #test x range
-    x = np.arange(min(Raw_data_x)-1, max(Raw_data_x)+1, 0.01)
+    x_axis = np.arange(min(Raw_data_x)-1, max(Raw_data_x)+1, 0.1)
 
+    #Q1 part2
     #sample 5 curve
+    print(type(np.random.multivariate_normal(mN_list, SN_matrix).flatten()))
     for i in range(5):
-        #np.poly1d : input W, return linear function
-        #print(np.random.multivariate_normal(mN_list, SN_matrix).flatten())
-        #line = np.poly1d(np.random.multivariate_normal(mN_list, SN_matrix).flatten())
-        comp_pred_curve(part1_2[N_list.index(N)], x, np.random.multivariate_normal(mN_list, SN_matrix).flatten())
-        #print(line)
+        draw_one_pred_curve(part1_2[N_list.index(N)], x_axis, np.random.multivariate_normal(mN_list, SN_matrix).flatten())
 
-        #print()
-        #part1_2[N_list.index(N)].plot(x, line(x), '-')
+
+    #Q1 part3
+    Q1_p3(part1_3[N_list.index(N)], x_axis, mN_list, SN_matrix)
 
 plt.show()
-
-
 print()
 
 
