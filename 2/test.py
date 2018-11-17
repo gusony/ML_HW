@@ -9,9 +9,10 @@ import numpy.linalg
 import math
 
 
-a =  np.array([[1,2,],[3,4]])
+a = [1,2,3]
+b = [4,5,6]
 
-print(a.flatten())
+print(a.dot(b))
 # mean = np.array([0, 0])
 # cov = np.matrix([[1, 0], [0, 100]])
 # print(mean.shape,cov.shape)

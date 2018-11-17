@@ -49,7 +49,7 @@ def Q1_p3(fplt, x_list, mN_list, SN_matrix):
             sigmoid_one_x.append(sigmoid_func((x-(4*j/M))/s))
         t = []
         w = []
-        for sampling in range(10000): #sampling 1000 times
+        for sampling in range(1000): #sampling 1000 times
             w = np.random.multivariate_normal(mN_list, SN_matrix).flatten() # type( np.ndarray )
             t.append(sum(i[0] * i[1] for i in zip(sigmoid_one_x, w)))
 
