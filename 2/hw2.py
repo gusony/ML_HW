@@ -38,10 +38,10 @@ def draw_one_pred_curve(fplt, x, w):
 
 def Q1_p3(fplt, x_list, mN_list, SN_matrix):
     mean_curve_t = []
-    var = []
+    std = []
     one_X_distri = []
-    positive_curve = []
-    negative_curve = []
+    positive_curve = np.array([])
+    negative_curve = np.array([])
 
     for x in x_list:
         sigmoid_one_x = []
@@ -54,9 +54,13 @@ def Q1_p3(fplt, x_list, mN_list, SN_matrix):
             t.append(sum(i[0] * i[1] for i in zip(sigmoid_one_x, w)))
 
         mean_curve_t.append(np.mean(np.array(t)))
-        var.append(np.std(np.array(t)))
+        std.append(np.std(np.array(t)))
+    positive_curve = np.array(mean_curve_t) + np.array(std)
+    negative_curve = np.array(mean_curve_t) - np.array(std)
+    fplt.plot(x_list, mean_curve_t, '-', color='red')
+    fplt.plot(x_list, positive_curve, '-')
+    fplt.plot(x_list, negative_curve, '-')
 
-    fplt.plot(x_list,mean_curve_t,'-')
 
 def SN(phi_matrix):
     #phi_matrix (N, 7)
@@ -85,6 +89,7 @@ f,part1_3 = plt.subplots(1,4)
 
 
 for N in N_list:
+    print ('N=',str(N))
     phi_j_of_x_matrix = np.matrix([])
     SN_matrix = np.matrix([])
     mN_matrix = np.matrix([])
@@ -105,7 +110,6 @@ for N in N_list:
 
     #Q1 part2
     #sample 5 curve
-    print(type(np.random.multivariate_normal(mN_list, SN_matrix).flatten()))
     for i in range(5):
         draw_one_pred_curve(part1_2[N_list.index(N)], x_axis, np.random.multivariate_normal(mN_list, SN_matrix).flatten())
 

@@ -9,10 +9,11 @@ import numpy.linalg
 import math
 
 
-a = [1,2,3]
-b = [4,5,6]
+a = np.array([1,2,3])
+b = np.array([4,5,6])
+c = b-a
 
-print(a.dot(b))
+print(type(c), c)
 # mean = np.array([0, 0])
 # cov = np.matrix([[1, 0], [0, 100]])
 # print(mean.shape,cov.shape)
