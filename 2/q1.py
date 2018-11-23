@@ -118,8 +118,6 @@ for N in N_list:
     Q1_p3(part1_3[N_list.index(N)], x_axis, mN_list, SN_matrix)
 
 plt.show()
-print()
-
 
 
 
