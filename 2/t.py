@@ -9,20 +9,7 @@ import numpy.linalg
 import math
 
 
-a = np.array([1,2,3])
-b = np.array([4,5,6])
-c = b-a
+print(   log(0.33333333))
+print(np.log(0.33333333))
 
-print(type(c), c)
-# mean = np.array([0, 0])
-# cov = np.matrix([[1, 0], [0, 100]])
-# print(mean.shape,cov.shape)
-# x, y = np.random.multivariate_normal(mean, cov, 5000).T
-# print(np.random.multivariate_normal(mean, cov, 5000).shape)
-# print(x)
-# print()
 
-# print(y)
-# plt.plot(x, y, 'x')
-# plt.axis('equal')
-# plt.show()
