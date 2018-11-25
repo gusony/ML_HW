@@ -53,8 +53,30 @@ phi_matrix = np.matrix(raw_feature)
 a_martix = W_matrix.dot(phi_matrix.T)
 y_matrix = get_y_matrix(a_martix)
 t_matrix = np.matrix(raw_class_result)
-print(error_func(t_matrix, y_matrix))
-print(error_func2(t_matrix, y_matrix))
+
+f,part3 = plt.subplots(sharex=True,sharey=True)
+part3.hist(np.array(raw_feature)[:,0])
+part3.hist(np.array(raw_feature)[:,1])
+part3.hist(np.array(raw_feature)[:,2])
+part3.hist(np.array(raw_feature)[:,3])
+part3.hist(np.array(raw_feature)[:,4])
+part3.hist(np.array(raw_feature)[:,5])
+part3.hist(np.array(raw_feature)[:,6])
+
+
+
+
+
+
+
+
+
+
+
+
+plt.show()
+
+
 
 
 
