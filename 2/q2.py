@@ -13,7 +13,9 @@ W_matrix = [] #(3,7)
 phi_matrix = [] #(180, 7)
 a_martix = [] #(3,180)
 y_matrix = []
-
+EW_list = []
+EW_times = []
+optimal_w_matrix =[]
 
 def init_W_matrix():
     result = []
@@ -41,6 +43,28 @@ def get_y_matrix(a):
 def error_func(t,y):
     return(sum((-1)*t.item(n,k)*np.log(float(y.item(n,k))) for n in range(t.shape[0]) for k in range(t.shape[1]) ) )
 
+
+def degreeE(j,y,t):
+    y_t = y-t
+    sum_array = sum( (y[n,j]-t[n,j])*np.array(phi_matrix[n,:]) for n in range(y.shape[0]) )
+    return(np.matrix(sum_array.flatten().tolist()))
+
+def Hj(j,y,phi):
+    result = sum( y[n,j]*(1-y[n,j])*phi[n,:].T.dot(phi[n,:]) for n in range(y.shape[0]) )
+    return(result)
+
+
+def update_w_mtx(y, w_old, phi, t):#w_old : matrix
+    w_new = []
+
+    for j in range(w_old.shape[0]): #for each class
+        degreeE_matrix = np.matrix(degreeE(j,y,t),dtype=np.float32)
+        HJ = np.matrix(Hj(j,y,phi),dtype=np.float32)
+        w_new_matrix = w_old[j,:] - degreeE_matrix.dot(pinv(HJ.T))
+        w_new.append(np.array(w_new_matrix).flatten().tolist())
+    return(np.matrix(w_new))
+
+
 #read file
 with open('train.csv', newline='') as trainfile:
     rows = csv.reader(trainfile)
@@ -50,10 +74,23 @@ with open('train.csv', newline='') as trainfile:
 
 W_matrix = init_W_matrix()
 phi_matrix = np.matrix(raw_feature)
-a_martix = W_matrix.dot(phi_matrix.T)
-y_matrix = get_y_matrix(a_martix)
 t_matrix = np.matrix(raw_class_result)
 
+optimal_w_matrix = np.matrix( pinv(phi_matrix.T.dot(phi_matrix)).dot(phi_matrix.T).dot(t_matrix) )
+
+
+for i in range(10): # test : run 100 time to update W
+    print(i)
+    a_martix = W_matrix.dot(phi_matrix.T)
+    y_matrix = get_y_matrix(a_martix)
+    W_matrix = update_w_mtx(y_matrix, W_matrix, phi_matrix, t_matrix)
+print(W_matrix,'\n--------------------------------\n')
+#print('y_matrix',y_matrix.item(0,))
+print('\noptimal_w_matrix:\n',optimal_w_matrix.T)
+
+#part2
+#print(error_func(t_matrix, y_matrix))
+#part3
 f,part3 = plt.subplots(sharex=True,sharey=True)
 part3.hist(np.array(raw_feature)[:,0])
 part3.hist(np.array(raw_feature)[:,1])
@@ -64,6 +101,8 @@ part3.hist(np.array(raw_feature)[:,5])
 part3.hist(np.array(raw_feature)[:,6])
 
 
+f,part5 = plt.subplots()
+part5.scatter(np.array(raw_feature)[:,3], np.array(raw_feature)[:,6])
 
 
 
@@ -74,7 +113,8 @@ part3.hist(np.array(raw_feature)[:,6])
 
 
 
-plt.show()
+
+#plt.show()
 
 
 

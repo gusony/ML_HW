@@ -9,10 +9,7 @@ import numpy.linalg
 import math
 
 
-normal_samples = np.random.normal(size = 100000) # 生成 100000 組標準常態分配（平均值為 0，標準差為 1 的常態分配）隨機變數
-uniform_samples = np.random.uniform(size = 100000) # 生成 100000 組介於 0 與 1 之間均勻分配隨機變數
+a = np.array([[1,2,3,4,5],[6,7,8,9,10]])
+b = np.array([[2,2,2,2,2],[3,3,3,3,3]])
+print(a - b)
 
-f,part3 = plt.subplots()
-part3.hist(normal_samples)
-part3.hist(uniform_samples)
-plt.show()

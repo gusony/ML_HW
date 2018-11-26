@@ -1,9 +1,12 @@
 常見問題
 1.第一題的第二小題，是你求出mean跟variance之後，根據這個機率分布去sample出五組weight，劃出五條線。
 2.第一題的第三小題，是你求出mean跟variance之後，畫出mean的線，mean+1個standard deviation的線，mean-1個standard deviation的線。
+
+
 3.第二題的第一小題，矩陣的dimension跟公式我放在夾帶檔案的hint.jpg，給大家參考。
 4.第二題的第二小題，只需要秀出classification的result，不用算accuracy。
 5.第二題的第三小題，我舉個例子在夾帶檔案的figure.png，顏色是class，橫軸是該attribute的value，縱軸是有幾筆data的value坐落在這區間。
 6.第二題的第五小題，你自己隨意挑兩個attribute就行了，xy軸分別是兩個attribute的value，你可以用不同顏色或符號代表class，舉例如夾帶檔案的figure2。
 7.第二題的第七小題，公式在p.191~192。
+
 8.第三題的圖只是示意圖，不用跟他一樣。
