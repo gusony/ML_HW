@@ -14,11 +14,13 @@ phi_matrix = [] #(180, 7)
 a_martix = [] #(3,180)
 y_matrix = []
 EW_list = []
-EW_times = []
-optimal_w_matrix =[]
 x = []
 EW_list = []
 test_feature = []
+
+ε = 0.5
+
+#############################################################################
 def init_W_matrix():
     result = []
     for i in range(3): # 3 classes
@@ -41,12 +43,8 @@ def get_y_matrix(a):
         result.append(temp)
     return(np.matrix(result,dtype=np.float64))
 
-
 def error_func(t,y):
     return(sum((-1)*t.item(n,k)*np.log(float(y.item(n,k))) for n in range(t.shape[0]) for k in range(t.shape[1]) ) )
-
-# def E(phi, y,t):
-#     return(phi.T.dot(y-t))
 
 def get_R_matrix(y):
     array_y = np.array(y)
@@ -59,40 +57,23 @@ def get_R_matrix(y):
             else:
                 temp.append(0)
         R.append(temp)
-    #print(np.matrix(R))
     return(np.matrix(R))
 
-# def H(phi, y):
-#     R = get_R_matrix(y)
-#     #temp = phi.T
-#     #temp = temp.dot(R)
-#     #temp = temp.dot(phi)
-#     #print(temp.shape, type(temp))
-#     return(phi.T.dot(R).dot(phi))
-#     #y_1_y = np.array(y)*(1-np.array(y))
-#     #result = sum( y_1_y[n,j]*phi[n,:].T.dot(phi[n,:]) for n in range(y.shape[0]) )
-#     #print('result\n',result,'\n')
-#     #return(result)
-
 def Z(phi, w_old, R, y, t):
-    #print('z.shape',(phi.dot(w_old.T) - pinv(R).dot(y-t)).shape )
     return(phi.dot(w_old.T) - pinv(R).dot(y-t) )
 
 def update_w_mtx(phi, w_old, t, y):
     R = get_R_matrix(y) # shape(n,n))
     z = Z(phi, w_old, R, y, t)
-    #print('pinv.shape',pinv(phi.T.dot(R).dot(phi)).dot(phi.T).dot(R).shape)
     return( pinv(phi.T.dot(R).dot(phi)).dot(phi.T).dot(R).dot(z).T  )
-
-    #return((pinv(phi.T.dot(phi)).dot(phi.T).dot(t)).T ) #shape(7,3) 最佳解
 
 def get_class_result(y):
     y_list = np.array(y).tolist()
     result = np.matrix([[0,0,0] for n in range(y.shape[0])])
     for n in range(y.shape[0]):
         result.itemset((n,y_list[n].index(max(y_list[n]))), 1)
-
     return(np.matrix(result))
+#############################################################################
 
 #read file
 with open('train.csv', newline='') as trainfile:
@@ -106,24 +87,24 @@ with open('test.csv', newline='') as testfile:
         test_feature.append(list(map(float,row)))
     test_feature = np.matrix(test_feature)
 
+#set init value
 W_matrix = init_W_matrix()
 phi_matrix = np.matrix(raw_feature)
 t_matrix = np.matrix(raw_class_result)
 
-optimal_w_matrix = np.matrix( pinv(phi_matrix.T.dot(phi_matrix)).dot(phi_matrix.T).dot(t_matrix) )
-
+#compute W iteratively
 i=1
-while i: # test : run 100 time to update W
+while i:
     print(i)
     x.append(i)
     a_martix = W_matrix.dot(phi_matrix.T)
     y_matrix = get_y_matrix(a_martix)
     W_matrix = update_w_mtx(phi_matrix, W_matrix, t_matrix, y_matrix)
     EW_list.append(error_func(t_matrix, y_matrix))
-    print(EW_list[i-1])
-    if EW_list[i-1] < 10:
+    if EW_list[i-1] < ε:
         break
     i+=1
+
 
 #part1
 f,part1 = plt.subplots()
@@ -133,12 +114,15 @@ part1.text(round(i/2),170,"ε=0.5\ninteration times ="+str(i))
 part1.scatter(x, EW_list)
 
 #part2
-#print(test_feature)
-print(get_class_result(get_y_matrix(W_matrix.dot(test_feature.T))))
-#print(error_func(t_matrix, y_matrix))
+class_result_matrix = get_class_result(get_y_matrix(W_matrix.dot(test_feature.T)))
+class_result_list = np.array(class_result_matrix.dot(np.matrix([[1],[2],[3]]))).flatten().tolist()
+f,part2 = plt.subplots()
+part2.set_title('HW2 Q2 part2, show class result oftest data')
+part2.scatter(list(range(class_result_matrix.shape[0])), class_result_list)
 
 #part3
 f,part3 = plt.subplots(sharex=True,sharey=True)
+part3.set_title('HW2 Q2 part3')
 part3.hist(np.array(raw_feature)[:,0])
 part3.hist(np.array(raw_feature)[:,1])
 part3.hist(np.array(raw_feature)[:,2])
@@ -150,7 +134,7 @@ part3.hist(np.array(raw_feature)[:,6])
 
 f,part5 = plt.subplots()
 part5.scatter(np.array(raw_feature)[:,3], np.array(raw_feature)[:,6])
-
+part5.set_title('HW2 Q2 part5')
 
 
 
