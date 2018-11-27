@@ -37,7 +37,7 @@ def get_y_matrix(a):
         for k in range(a.shape[0]):
             temp.append(exp(a.item(k,n))/deno)
         result.append(temp)
-    return(np.matrix(result))
+    return(np.matrix(result,dtype=np.float64))
 
 
 def error_func(t,y):
@@ -46,11 +46,18 @@ def error_func(t,y):
 
 def degreeE(j,y,t):
     y_t = y-t
-    sum_array = sum( (y[n,j]-t[n,j])*np.array(phi_matrix[n,:]) for n in range(y.shape[0]) )
+    sum_array = sum( y_t[n,j]*np.array(phi_matrix[n,:]) for n in range(y.shape[0]) )
     return(np.matrix(sum_array.flatten().tolist()))
 
+def test_degreeE(y,t):
+    phi = np.matrix(raw_feature)
+    result = phi.T.dot(y-t)
+    return(result.T)
+
+
 def Hj(j,y,phi):
-    result = sum( y[n,j]*(1-y[n,j])*phi[n,:].T.dot(phi[n,:]) for n in range(y.shape[0]) )
+    y_1_y = np.array(y)*(1-np.array(y))
+    result = sum( y_1_y[n,j]*phi[n,:].T.dot(phi[n,:]) for n in range(y.shape[0]) )
     return(result)
 
 
@@ -58,10 +65,11 @@ def update_w_mtx(y, w_old, phi, t):#w_old : matrix
     w_new = []
 
     for j in range(w_old.shape[0]): #for each class
-        degreeE_matrix = np.matrix(degreeE(j,y,t),dtype=np.float32)
+        degreeE_matrix = test_degreeE(y,t)#degreeE(j,y,t)
         HJ = np.matrix(Hj(j,y,phi),dtype=np.float32)
         w_new_matrix = w_old[j,:] - degreeE_matrix.dot(pinv(HJ.T))
         w_new.append(np.array(w_new_matrix).flatten().tolist())
+    #test_degreeE(y,t)
     return(np.matrix(w_new))
 
 
@@ -79,10 +87,11 @@ t_matrix = np.matrix(raw_class_result)
 optimal_w_matrix = np.matrix( pinv(phi_matrix.T.dot(phi_matrix)).dot(phi_matrix.T).dot(t_matrix) )
 
 
-for i in range(10): # test : run 100 time to update W
+for i in range(1): # test : run 100 time to update W
     print(i)
     a_martix = W_matrix.dot(phi_matrix.T)
     y_matrix = get_y_matrix(a_martix)
+    print('a_matrix.dtype',a_martix.dtype,y_matrix.dtype)
     W_matrix = update_w_mtx(y_matrix, W_matrix, phi_matrix, t_matrix)
 print(W_matrix,'\n--------------------------------\n')
 #print('y_matrix',y_matrix.item(0,))
