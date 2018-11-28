@@ -96,7 +96,7 @@ dis_array = all_test_data_euc_dist(test_feat, np.array(train_feat))
 x_K =[]
 accu_rate_by_K = []
 class_result = []
-for K in range(11):
+for K in range(1,11):
     print('K:',K)
     x_K.append(K)
     accu_rate_by_K.append(compute_acc_rate(get_all_class_result(K, dis_array)))
