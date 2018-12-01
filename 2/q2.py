@@ -18,8 +18,8 @@ x = []
 EW_list = []
 test_feature = []
 
-ε = 10
-ε2 = 50
+ε = 0.5
+ε2 = 40
 
 #############################################################################
 def init_W_matrix():
@@ -133,6 +133,7 @@ part1.set_title('HW2 Q2 part1, E(w)')
 part1.set_xlabel('iteration times')
 part1.text(round(i/2),170,"ε=0.5\ninteration times ="+str(i))
 part1.plot(x, EW_list)
+plt.show()
 
 #part2
 class_result_matrix = get_class_result(get_y_matrix(W_matrix.dot(test_feature.T)))
@@ -179,10 +180,13 @@ while True:
     print(len(EW_list2))
     if EW_list2[len(EW_list2)-1] < ε2:
         break
+    if len(EW_list2) >=200:
+        break
 
 f,part6 = plt.subplots()
 part6.set_title('Q2 part6,E(W)')
 part6.set_ylabel('E(w)')
+part6.text(round(len(EW_list2)/2),170,"ε=40\ninteration times ="+str(len(EW_list2)))
 part6.plot(np.arange(len(EW_list2)).tolist(), EW_list2)
 
 f,part6_2 = plt.subplots()
