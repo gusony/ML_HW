@@ -18,8 +18,6 @@ hypP = [[1,4,0,0],
         [0,0,0,1],
         [1,4,0,5],
         [1,64,10,0]] # const
-#zero_list = [0 for i  in range(60)]
-#one_list = [1 for i in range(60)]
 
 
 def comp_knm(par_index,xn,xm):
@@ -32,7 +30,7 @@ def get_k_list(par_index, test_data_index):
     return([comp_knm(par_index, train_data_x[i], test_data_x[test_data_index]) for i in range(60)])
 
 def mean_of_x(par_index,test_data_index, k_list):
-    return (np.matrix(k_list).dot(pinv(C_matrix_list[par_index]).dot(np.matrix(train_data_t).T))  )
+    return(np.matrix(k_list).dot(pinv(C_matrix_list[par_index]).dot(np.matrix(train_data_t).T)))
 
 def var_matrix(par_index,test_data_index, k_list):
     xn = test_data_t[test_data_index]
@@ -53,30 +51,35 @@ with open('gp.csv', newline='') as rowfile:
         i+=1
 
 f,flt = plt.subplots(1,4)
-#f,flt2 = plt.subplots(4,1)
+flt[0].set_title('(1,4,0,0)')
+flt[1].set_title('(0,0,0,1)')
+flt[2].set_title('(1,4,0,5)')
+flt[3].set_title('(1,64,10,0)')
+#flt[3].text()
 
 #bluild four C matrix
 for HyperParameterIndex in range(4):
     C_matrix_list.append(get_C(HyperParameterIndex, train_data_x))
-    #print('HyperParameterIndex=',HyperParameterIndex,'\n', C_matrix_list[HyperParameterIndex])
     mean_t_of_x = []
     cvar_t_of_x = []
-    pluse_one = []
-    minus_one = []
-    for test_index in range(60):
-        k_list = get_k_list(HyperParameterIndex, test_index)
-        mean_t_of_x.append(mean_of_x(HyperParameterIndex, test_index, k_list).flatten().tolist()[0])
-        cvar_t_of_x.append(var_matrix(HyperParameterIndex, test_index, k_list).flatten().tolist()[0])
-        pluse_one.append(mean_t_of_x[test_index][0]+cvar_t_of_x[test_index][0])
-        minus_one.append(mean_t_of_x[test_index][0]-cvar_t_of_x[test_index][0])
-
+    for i in range(len(test_data_x)):
+        k_list = get_k_list(HyperParameterIndex, i)
+        mean_t_of_x.append(mean_of_x(HyperParameterIndex, i, k_list).tolist()[0][0])
+        cvar_t_of_x.append(var_matrix(HyperParameterIndex, i, k_list).tolist()[0])
+    pluse_one = [ mean_t_of_x[i]+cvar_t_of_x[i][0] for i in range(len(test_data_x))]  #minus_one.append(mean_t_of_x[test_index][0]+cvar_t_of_x[test_index][0])
+    minus_one = [ mean_t_of_x[i]-cvar_t_of_x[i][0] for i in range(len(test_data_x))]  #minus_one.append(mean_t_of_x[test_index][0]-cvar_t_of_x[test_index][0])
+    #print(mean_t_of_x)
     a = list(zip(test_data_x,mean_t_of_x, pluse_one, minus_one))
     a = sorted(a, key=lambda l:l[0],reverse=False )
-    #flt[HyperParameterIndex].plot([a[i][0] for i in range(len(a))], [a[i][1] for i in range(len(a))] ,color='r')
+
+    flt[HyperParameterIndex].plot([a[i][0] for i in range(len(a))], [a[i][1] for i in range(len(a))] ,color='r')
     flt[HyperParameterIndex].fill_between([a[i][0] for i in range(len(a))], [a[i][2] for i in range(len(a))], [a[i][3] for i in range(len(a))] ,color='pink')
-    flt[HyperParameterIndex].scatter(test_data_x, mean_t_of_x)
-    flt[HyperParameterIndex].scatter(test_data_x, test_data_t, color='b')
-    #flt2[HyperParameterIndex].scatter(test_data_x, cvar_t_of_x)
+    flt[HyperParameterIndex].scatter(train_data_x, train_data_t, color='b')
+    Erms_train = round(np.sqrt((sum([(mean_t_of_x[i] - train_data_t[i])**2 for i in range(60)]))/60),5)
+    Erms_test = round(np.sqrt((sum([(mean_t_of_x[i] - test_data_t[i])**2 for i in range(60)]))/60),5)
+    # print('Erms',)
+
+    flt[HyperParameterIndex].text(0.4,0.9, 'Erms\ntrain:'+str(Erms_train)+"\ntest:"+str(Erms_test) ,transform=flt[HyperParameterIndex].transAxes)#將文字顯示在subplots裡面的相對座標
 plt.show()
 
 
