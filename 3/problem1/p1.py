@@ -21,21 +21,20 @@ hypP = [[1,4,0,0],
 
 
 def comp_knm(par_index,xn,xm):
-    return(hypP[par_index][0]*np.exp((-1)*hypP[par_index][1]*((xn-xm)**2)/2)+hypP[par_index][2]+hypP[par_index][3] * xn * xm)
+    return(hypP[par_index][0]*np.exp(-hypP[par_index][1]*(xn-xm)**2/2)+hypP[par_index][2]+hypP[par_index][3] * xn * xm)
 
 def get_C(par_index,x):# hyper parameter index
     return(np.matrix([ [comp_knm(par_index, x[i], x[j]) if i!=j else comp_knm(par_index, x[i], x[j])+1 for j in range(len(x))]for i in range(len(x)) ]))
 
-def get_k_list(par_index, test_data_index):
-    return([comp_knm(par_index, train_data_x[i], test_data_x[test_data_index]) for i in range(60)])
+def get_k_list(par_index, xn):
+    return([comp_knm(par_index, train_data_x[i], xn) for i in range(60)])
 
-def mean_of_x(par_index,test_data_index, k_list):
-    return(np.matrix(k_list).dot(pinv(C_matrix_list[par_index]).dot(np.matrix(train_data_t).T)))
+def mean_of_x(par_index, k_matrix):
+    return(k_matrix.dot(pinv(C_matrix_list[par_index])).dot(np.matrix(train_data_t).T))
 
-def var_matrix(par_index,test_data_index, k_list):
-    xn = test_data_t[test_data_index]
-    c = comp_knm(par_index, xn, xn)
-    return(c - np.matrix(k_list).dot(pinv(C_matrix_list[par_index])).dot(np.matrix(k_list).T))
+def var_matrix(par_index,xn, k_matrix):
+    c = comp_knm(par_index, xn, xn)+1
+    return(c - k_matrix.dot(pinv(C_matrix_list[par_index])).dot(k_matrix.T))
 
 #read data
 with open('gp.csv', newline='') as rowfile:
@@ -55,7 +54,6 @@ flt[0].set_title('(1,4,0,0)')
 flt[1].set_title('(0,0,0,1)')
 flt[2].set_title('(1,4,0,5)')
 flt[3].set_title('(1,64,10,0)')
-#flt[3].text()
 
 #bluild four C matrix
 for HyperParameterIndex in range(4):
@@ -63,11 +61,11 @@ for HyperParameterIndex in range(4):
     mean_t_of_x = []
     cvar_t_of_x = []
     for i in range(len(test_data_x)):
-        k_list = get_k_list(HyperParameterIndex, i)
-        mean_t_of_x.append(mean_of_x(HyperParameterIndex, i, k_list).tolist()[0][0])
-        cvar_t_of_x.append(var_matrix(HyperParameterIndex, i, k_list).tolist()[0])
-    pluse_one = [ mean_t_of_x[i]+cvar_t_of_x[i][0] for i in range(len(test_data_x))]  #minus_one.append(mean_t_of_x[test_index][0]+cvar_t_of_x[test_index][0])
-    minus_one = [ mean_t_of_x[i]-cvar_t_of_x[i][0] for i in range(len(test_data_x))]  #minus_one.append(mean_t_of_x[test_index][0]-cvar_t_of_x[test_index][0])
+        k_matrix = np.matrix(get_k_list(HyperParameterIndex, test_data_x[i]))
+        mean_t_of_x.append(mean_of_x(HyperParameterIndex, k_matrix).tolist()[0][0])
+        cvar_t_of_x.append(var_matrix(HyperParameterIndex, test_data_x[i], k_matrix).tolist()[0])
+    pluse_one = [ mean_t_of_x[i]+np.sqrt(cvar_t_of_x[i][0]) for i in range(len(test_data_x))]  #minus_one.append(mean_t_of_x[test_index][0]+cvar_t_of_x[test_index][0])
+    minus_one = [ mean_t_of_x[i]-np.sqrt(cvar_t_of_x[i][0]) for i in range(len(test_data_x))]  #minus_one.append(mean_t_of_x[test_index][0]-cvar_t_of_x[test_index][0])
     #print(mean_t_of_x)
     a = list(zip(test_data_x,mean_t_of_x, pluse_one, minus_one))
     a = sorted(a, key=lambda l:l[0],reverse=False )
