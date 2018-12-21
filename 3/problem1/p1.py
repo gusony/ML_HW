@@ -30,11 +30,11 @@ def get_k_list(par_index, xn):
     return([comp_knm(par_index, train_data_x[i], xn) for i in range(60)])
 
 def mean_of_x(par_index, k_matrix):
-    return(k_matrix.dot(pinv(C_matrix_list[par_index])).dot(np.matrix(train_data_t).T))
+    return((k_matrix.dot(pinv(C_matrix_list[par_index])).dot(np.matrix(train_data_t).T)).item((0,0)))
 
 def var_matrix(par_index,xn, k_matrix):
     c = comp_knm(par_index, xn, xn)+1
-    return(c - k_matrix.dot(pinv(C_matrix_list[par_index])).dot(k_matrix.T))
+    return((c - k_matrix.dot(pinv(C_matrix_list[par_index])).dot(k_matrix.T)).item((0,0)))
 
 #read data
 with open('gp.csv', newline='') as rowfile:
@@ -58,14 +58,10 @@ flt[3].set_title('(1,64,10,0)')
 #bluild four C matrix
 for HyperParameterIndex in range(4):
     C_matrix_list.append(get_C(HyperParameterIndex, train_data_x))
-    mean_t_of_x = []
-    cvar_t_of_x = []
-    for i in range(len(test_data_x)):
-        k_matrix = np.matrix(get_k_list(HyperParameterIndex, test_data_x[i]))
-        mean_t_of_x.append(mean_of_x(HyperParameterIndex, k_matrix).tolist()[0][0])
-        cvar_t_of_x.append(var_matrix(HyperParameterIndex, test_data_x[i], k_matrix).tolist()[0])
-    pluse_one = [ mean_t_of_x[i]+np.sqrt(cvar_t_of_x[i][0]) for i in range(len(test_data_x))]  #minus_one.append(mean_t_of_x[test_index][0]+cvar_t_of_x[test_index][0])
-    minus_one = [ mean_t_of_x[i]-np.sqrt(cvar_t_of_x[i][0]) for i in range(len(test_data_x))]  #minus_one.append(mean_t_of_x[test_index][0]-cvar_t_of_x[test_index][0])
+    mean_t_of_x = [mean_of_x(HyperParameterIndex, np.matrix(get_k_list(HyperParameterIndex, test_data_x[i]))) for i in range(len(test_data_x))]
+    cvar_t_of_x = [var_matrix(HyperParameterIndex, test_data_x[i], np.matrix(get_k_list(HyperParameterIndex, test_data_x[i]))) for i in range(len(test_data_x)) ]
+    pluse_one = [ mean_t_of_x[i]+np.sqrt(cvar_t_of_x[i]) for i in range(len(test_data_x))]  #minus_one.append(mean_t_of_x[test_index][0]+cvar_t_of_x[test_index][0])
+    minus_one = [ mean_t_of_x[i]-np.sqrt(cvar_t_of_x[i]) for i in range(len(test_data_x))]  #minus_one.append(mean_t_of_x[test_index][0]-cvar_t_of_x[test_index][0])
     #print(mean_t_of_x)
     a = list(zip(test_data_x,mean_t_of_x, pluse_one, minus_one))
     a = sorted(a, key=lambda l:l[0],reverse=False )
