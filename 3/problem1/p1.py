@@ -9,32 +9,32 @@ import numpy.linalg
 import math
 
 
-train_data_x = []
-train_data_t = []
-test_data_x = []
-test_data_t = []
+train_x = []
+train_t = []
+test_x = []
+test_t = []
 C_matrix_list = []
-hypP = [[1,4,0,0],
+θ_list = [[1,4,0,0],
         [0,0,0,1],
         [1,4,0,5],
         [1,64,10,0]] # const
 
 
-def comp_knm(par_index,xn,xm):
-    return(hypP[par_index][0]*np.exp(-hypP[par_index][1]*(xn-xm)**2/2)+hypP[par_index][2]+hypP[par_index][3] * xn * xm)
+def knm(θ, xn, xm):
+    return(θ[0]*np.exp(-θ[1]*(xn-xm)**2/2)+θ[2]+θ[3] * xn * xm)
 
-def get_C(par_index,x):# hyper parameter index
-    return(np.matrix([ [comp_knm(par_index, x[i], x[j]) if i!=j else comp_knm(par_index, x[i], x[j])+1 for j in range(len(x))]for i in range(len(x)) ]))
+def CN(θ, x): # hyper parameter index
+    return(np.matrix([ [knm(θ, x[i], x[j]) if i!=j else knm(θ, x[i], x[j])+1 for j in range(len(x))]for i in range(len(x)) ]))
 
-def get_k_list(par_index, xn):
-    return([comp_knm(par_index, train_data_x[i], xn) for i in range(60)])
+def k_matrix(θ, xn): #return type = np.matrix
+    return(np.matrix([knm(θ, train_x[i], xn) for i in range(60)]))
 
-def mean_of_x(par_index, k_matrix):
-    return((k_matrix.dot(pinv(C_matrix_list[par_index])).dot(np.matrix(train_data_t).T)).item((0,0)))
+def mean_of_x(θ, k, CN_inv):
+    return( k.dot(CN_inv).dot(np.matrix(train_t).T).item((0,0))  )
 
-def var_matrix(par_index,xn, k_matrix):
-    c = comp_knm(par_index, xn, xn)+1
-    return((c - k_matrix.dot(pinv(C_matrix_list[par_index])).dot(k_matrix.T)).item((0,0)))
+def var_matrix(θ, xn, k, CN_inv):
+    c = knm(θ, xn, xn)+1
+    return( (c - k.dot(CN_inv).dot(k.T)).item((0,0)) )
 
 #read data
 with open('gp.csv', newline='') as rowfile:
@@ -42,11 +42,11 @@ with open('gp.csv', newline='') as rowfile:
     i = 0
     for row in rows:
         if i < 60:
-            train_data_x.append(float(row[0]))
-            train_data_t.append(float(row[1]))
+            train_x.append(float(row[0]))
+            train_t.append(float(row[1]))
         else:
-            test_data_x.append(float(row[0]))
-            test_data_t.append(float(row[1]))
+            test_x.append(float(row[0]))
+            test_t.append(float(row[1]))
         i+=1
 
 f,flt = plt.subplots(1,4)
@@ -55,25 +55,32 @@ flt[1].set_title('(0,0,0,1)')
 flt[2].set_title('(1,4,0,5)')
 flt[3].set_title('(1,64,10,0)')
 
+C_matrix_list = [CN(θ, train_x) for θ in θ_list]
+
 #bluild four C matrix
-for HyperParameterIndex in range(4):
-    C_matrix_list.append(get_C(HyperParameterIndex, train_data_x))
-    mean_t_of_x = [mean_of_x(HyperParameterIndex, np.matrix(get_k_list(HyperParameterIndex, test_data_x[i]))) for i in range(len(test_data_x))]
-    cvar_t_of_x = [var_matrix(HyperParameterIndex, test_data_x[i], np.matrix(get_k_list(HyperParameterIndex, test_data_x[i]))) for i in range(len(test_data_x)) ]
-    pluse_one = [ mean_t_of_x[i]+np.sqrt(cvar_t_of_x[i]) for i in range(len(test_data_x))]  #minus_one.append(mean_t_of_x[test_index][0]+cvar_t_of_x[test_index][0])
-    minus_one = [ mean_t_of_x[i]-np.sqrt(cvar_t_of_x[i]) for i in range(len(test_data_x))]  #minus_one.append(mean_t_of_x[test_index][0]-cvar_t_of_x[test_index][0])
-    #print(mean_t_of_x)
-    a = list(zip(test_data_x,mean_t_of_x, pluse_one, minus_one))
+for θ in θ_list:
+    k_list = [k_matrix(θ, test_x[i]) for i in range(len(test_x)) ]
+    CN_inv = pinv(C_matrix_list[θ_list.index(θ)])
+
+    mean_t_of_x = [mean_of_x(θ, k_list[i], CN_inv) for i in range(len(test_x))]
+    cvar_t_of_x = [var_matrix(θ, test_x[i], k_list[i], CN_inv)     for i in range(len(test_x))]
+    pluse_one = [ mean_t_of_x[i]+np.sqrt(cvar_t_of_x[i]) for i in range(len(test_x))]
+    minus_one = [ mean_t_of_x[i]-np.sqrt(cvar_t_of_x[i]) for i in range(len(test_x))]
+
+    #zip and sort together
+    a = list(zip(test_x,mean_t_of_x, pluse_one, minus_one))
     a = sorted(a, key=lambda l:l[0],reverse=False )
 
-    flt[HyperParameterIndex].plot([a[i][0] for i in range(len(a))], [a[i][1] for i in range(len(a))] ,color='r')
-    flt[HyperParameterIndex].fill_between([a[i][0] for i in range(len(a))], [a[i][2] for i in range(len(a))], [a[i][3] for i in range(len(a))] ,color='pink')
-    flt[HyperParameterIndex].scatter(train_data_x, train_data_t, color='b')
-    Erms_train = round(np.sqrt((sum([(mean_t_of_x[i] - train_data_t[i])**2 for i in range(60)]))/60),5)
-    Erms_test = round(np.sqrt((sum([(mean_t_of_x[i] - test_data_t[i])**2 for i in range(60)]))/60),5)
-    # print('Erms',)
-
-    flt[HyperParameterIndex].text(0.4,0.9, 'Erms\ntrain:'+str(Erms_train)+"\ntest:"+str(Erms_test) ,transform=flt[HyperParameterIndex].transAxes)#將文字顯示在subplots裡面的相對座標
+    #mean curve
+    flt[θ_list.index(θ)].plot([a[i][0] for i in range(len(a))], [a[i][1] for i in range(len(a))] ,color='r')
+    #fill between pluse and minus one std area
+    flt[θ_list.index(θ)].fill_between([a[i][0] for i in range(len(a))], [a[i][2] for i in range(len(a))], [a[i][3] for i in range(len(a))] ,color='pink')
+    #pin out train data
+    flt[θ_list.index(θ)].scatter(train_x, train_t, color='b')
+    #computer Erms for train and test data
+    Erms_train = round(np.sqrt((sum([(mean_t_of_x[i] - train_t[i])**2 for i in range(60)]))/60),5)
+    Erms_test = round(np.sqrt((sum([(mean_t_of_x[i] - test_t[i])**2 for i in range(60)]))/60),5)
+    flt[θ_list.index(θ)].text(0.4,0.9, 'Erms\ntrain:'+str(Erms_train)+"\ntest:"+str(Erms_test) ,transform=flt[θ_list.index(θ)].transAxes)#將文字顯示在subplots裡面的相對座標
 plt.show()
 
 
