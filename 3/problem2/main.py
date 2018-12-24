@@ -1,13 +1,16 @@
-import csv  #read .csv
+#-*- coding: UTF-8 -*-
 import numpy as np
-from numpy.linalg import pinv
 import matplotlib.pyplot as plt
-from sklearn import svm
 
+'''
+import functions from other file
+'''
+import SVM_DataCreate as data_create
 
-def readdata(textname):
-    with open(textname, newline='') as rowfile:
-        return ([row for row in csv.reader(rowfile)])
+'''==============================================================================================
+完整的SMO SVM算法
+'''
+
 class optStruct:
     def __init__(self, dataMatIn, classLabels, C, toler):
         self.X = dataMatIn
@@ -44,6 +47,7 @@ def selectJrand(i, m):
         j = int(np.random.uniform(0, m))
 
     return j
+
 '''
 函數功能：選擇一個SMO算法中與外層配對的alpha值的下標
 '''
@@ -68,9 +72,11 @@ def selectJ(i, oS, Ei):
         j = selectJrand(i, oS.m)
         Ej = calcEk(oS, j)
         return j, Ej
+
 def updateEk(oS, k):
     Ek = calcEk(oS, k)
     oS.eCache[k] = [1, Ek]
+
 '''
 SMO算法中的優化部分
 '''
@@ -157,64 +163,83 @@ def SMOP(dataMatIn, classLabels, C, toler, maxIter, kTup=('lin', 0)):
     return oS.b, oS.alphas
 
 
-train_x = np.array(readdata("x_train.csv"), dtype=float)
-train_t = np.array(readdata("t_train.csv"), dtype=int).flatten()
+'''
+函數功能：由計算出來的alphas獲得進行分類的權重向量
+alphas: 計算出來的alpha向量
+dataArr: 訓練數據
+classLabels: 數據標籤
+'''
+def calcWs(alphas, dataArr, classLabels):
+    X = np.mat(dataArr)
+    labelMat = np.mat(classLabels)
+    rows, cols = np.shape(dataArr)
+    w = np.mat(np.zeros((cols, 1)))
+    for i in range(rows):
+        w += np.multiply(alphas[i, :]*labelMat[:, i], X[i,:].T)
+    return w
 
-#create firgure
-f,flt = plt.subplots(2,2,sharex='all',sharey='all')
-#set boundary
-flt[0,0].set(xlim=[-1, 1], ylim=[-1, 1])
-#set titles
-flt[0,0].set_title('Linear SVC (ovr)')
-flt[0,1].set_title('Linear SVC (ovo)')
-flt[1,0].set_title('Poly SVC (degree=2,ovr)')
-flt[1,1].set_title('Poly SVC (degree=2,ovo)')
-#show data to all figure
-for i in range(2):
-    for j in range(2):
-        for n in range(len(train_t)):
-            if train_t[n] ==   1 :
-                flt[i,j].scatter(train_x[n,0], train_x[n,1], color='r')
-            elif train_t[n] == 2 :
-                flt[i,j].scatter(train_x[n,0], train_x[n,1], color='b')
-            elif train_t[n] == 3 :
-                flt[i,j].scatter(train_x[n,0], train_x[n,1], color='g')
+'''
+main function
+'''
+Data, DataLabel = data_create.GenerateData(10)     #generate data
+print Data
+b, alphas = SMOP(Data, DataLabel, 0.6, 0.001, 50)
 
+SuportPoint = []
+for i in range(np.shape(alphas)[0]):
+    if 0 < alphas[i]:
+        SuportPoint.append([i, alphas[i]])
+SuportPoint = np.mat(np.array(SuportPoint))
+print SuportPoint
+weight_vector = calcWs(alphas, np.mat(Data), np.mat(DataLabel))
+print weight_vector
 
-#clf = svm.SVC(kernel='linear', decision_function_shape='ovo')
-clf = svm.LinearSVC()
-clf.fit(train_x, train_t)
-# one vs rest
-x = np.linspace(-1, 1, 1000)
-flt[0,0].plot(x, (-clf.coef_[0][0]*x + clf.intercept_[0])/clf.coef_[0][1], color='r')
-flt[0,0].plot(x, (-clf.coef_[1][0]*x + clf.intercept_[1])/clf.coef_[1][1], color='b')
-flt[0,0].plot(x, (-clf.coef_[2][0]*x + clf.intercept_[2])/clf.coef_[2][1], color='g')
+#fig, ax =plt.subplots(1,2,figsize=(10,5))
+plt.figure("decsion boundry")
+plt.title("decsion boundry")
+p1 = plt.subplot(121)
+p2 = plt.subplot(122)
+for i in range(Data.shape[0]):
+    if 1 == DataLabel[i]:
+        p1.plot(Data[i][0], Data[i][1], 'r^')
+    if -1 == DataLabel[i]:
+        p1.plot(Data[i][0], Data[i][1], 'gs')
+p1.set_xlabel("X label")
+p1.set_ylabel("Y label")
+x = np.arange(-10, 10, 1)
+l = float( weight_vector[0, :])
+k = np.multiply(x, l)
+y = np.multiply(weight_vector[0, :], x) + weight_vector[1, :] + b
+y = np.array(y)
+p1.plot(x, y[0, :], 'b')
+p1.grid(True)
 
-#print(clf.support_vectors_.shape)
-#print(clf.n_support_)
-#print("clf.dual_coef_",clf.dual_coef_)
-#print("clf.coef_\n",clf.coef_)
-#print("clf.intercept_\n",clf.intercept_)
-#print(clf.decision_function(train_x))
-
-poly_svc = svm.SVC(kernel='poly', degree=2 ,gamma='auto',decision_function_shape='ovr')
-poly_svc.fit(train_x, train_t)
-print(poly_svc.dual_coef_)
-#print(poly_svc.support_)
-print(poly_svc.n_support_)
-print(poly_svc.support_vectors_.shape)
-print(poly_svc.intercept_)
-print()
-
-for i in range(len(train_t)):
-    print(train_x[i],poly_svc.support_vectors_[i])
-
-
-
-
-
-
-
-
-
+x = np.arange(0, 10, 0.5)
+l = float( weight_vector[0, :])
+k = np.multiply(x, l)
+y = np.multiply(weight_vector[0, :], x) + weight_vector[1, :] + b
+y = np.array(y)
+p2.plot(x, y[0, :], 'b')
+p2.set_xlabel("X label")
+p2.set_ylabel("Y label")
+p2.grid(True)
+plt.title("input data distribution")
+'''
+SaveImg = raw_input("保存圖片(0), 不保存圖片(1)")
+if "0" == SaveImg:
+    try:
+        plt.savefig('result.png', format='png')
+    except Exception, e:
+        print "save Image Error: %s" % (e)
+elif "1" == SaveImg:
+    print "result image has not been saved"
+else:
+    print "Input Error, please input '1' or '0' "
+'''
 plt.show()
+
+print b
+print alphas
+
+
+

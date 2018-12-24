@@ -110,6 +110,7 @@ for N in N_list:
 
     #Q1 part2
     #sample 5 curve
+    print(np.random.multivariate_normal(mN_list, SN_matrix).flatten())
     for i in range(5):
         draw_one_pred_curve(part1_2[N_list.index(N)], x_axis, np.random.multivariate_normal(mN_list, SN_matrix).flatten())
 
