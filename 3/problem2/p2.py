@@ -90,19 +90,19 @@ def innerL(i, oS):
             L = max(0, oS.alphas[j] + oS.alphas[i] - oS.C)
             H = min(oS.C, oS.alphas[j] + oS.alphas[i])
         if H == L:
-            print "H==L program continued"
+            #print ("H==L program continued")
             return 0
 
         '''公式（8）（9）'''
         eta = 2.0 * oS.X[i, :] * oS.X[j, :].T - oS.X[i, :] * oS.X[i, :].T - \
               oS.X[j, :] * oS.X[j, :].T
         if 0 <= eta:
-            print "eta>=0 program continued"
+            #print ("eta>=0 program continued")
             return
         oS.alphas[j] -= oS.labelMat[j] * (Ei - Ej) / eta
         oS.alphas[j] = clipAlpha(oS.alphas[j], L, H)
         if (abs(oS.alphas[j] - alphaJold) < 0.00001):
-            print "j not moving enough %s" % ("program continued")
+            #print ("j not moving enough %s" % ("program continued"))
             return 0
         oS.alphas[i] += oS.labelMat[j] * oS.labelMat[i] * (alphaJold - oS.alphas[j])
         updateEk(oS, i) #更新誤差緩存'
@@ -141,35 +141,31 @@ def SMOP(dataMatIn, classLabels, C, toler, maxIter, kTup=('lin', 0)):
         if entireSet:
             for i in range(oS.m):
                 alphaPairsChanged += innerL(i, oS)
-                print "fullSet, iter: %d    i:%d, pairs changed: %d" % (iter, i, alphaPairsChanged)
+                #print ("fullSet, iter: %d    i:%d, pairs changed: %d" % (iter, i, alphaPairsChanged))
             iter += 1
         else:
             nonBoundIs = np.nonzero((oS.alphas.A>0) * (oS.alphas.A<C))[0]
             for i in nonBoundIs:
                 alphaPairsChanged += innerL(i, oS)
-                print "fullSet, iter: %d    i:%d, pairs changed: %d" % (iter, i, alphaPairsChanged)
+                #print ("fullSet, iter: %d    i:%d, pairs changed: %d" % (iter, i, alphaPairsChanged))
             iter += 1
         if entireSet:
             entireSet = False
         elif (0==alphaPairsChanged):
             entireSet = True
-        print "iteration number: %d" % (iter)
+        print ("iteration number: %d" % (iter))
     return oS.b, oS.alphas
 
 
 train_x = np.array(readdata("x_train.csv"), dtype=float)
 train_t = np.array(readdata("t_train.csv"), dtype=int).flatten()
 
-#create firgure
 f,flt = plt.subplots(2,2,sharex='all',sharey='all')
-#set boundary
 flt[0,0].set(xlim=[-1, 1], ylim=[-1, 1])
-#set titles
 flt[0,0].set_title('Linear SVC (ovr)')
 flt[0,1].set_title('Linear SVC (ovo)')
 flt[1,0].set_title('Poly SVC (degree=2,ovr)')
 flt[1,1].set_title('Poly SVC (degree=2,ovo)')
-#show data to all figure
 for i in range(2):
     for j in range(2):
         for n in range(len(train_t)):
@@ -190,6 +186,20 @@ flt[0,0].plot(x, (-clf.coef_[0][0]*x + clf.intercept_[0])/clf.coef_[0][1], color
 flt[0,0].plot(x, (-clf.coef_[1][0]*x + clf.intercept_[1])/clf.coef_[1][1], color='b')
 flt[0,0].plot(x, (-clf.coef_[2][0]*x + clf.intercept_[2])/clf.coef_[2][1], color='g')
 
+
+
+clf.fit(np.delete(train_x,range(100,150),0), np.delete(train_t,range(100,150),0))
+flt[0,1].plot(x, (-clf.coef_[0][0]*x + clf.intercept_[0])/clf.coef_[0][1], color='r')
+clf.fit(np.delete(train_x,range(50,100),0), np.delete(train_t,range(50,100),0))
+flt[0,1].plot(x, (-clf.coef_[0][0]*x + clf.intercept_[0])/clf.coef_[0][1], color='b')
+clf.fit(np.delete(train_x,range(0,50),0), np.delete(train_t,range(0,50),0))
+flt[0,1].plot(x, (-clf.coef_[0][0]*x + clf.intercept_[0])/clf.coef_[0][1], color='g')
+
+
+#b, alphas = SMOP(train_x, train_t, 1, 0.001, 100)
+#print("\nb:\n",b)
+#print("\nalphas:\n",len(alphas))
+
 #print(clf.support_vectors_.shape)
 #print(clf.n_support_)
 #print("clf.dual_coef_",clf.dual_coef_)
@@ -197,17 +207,19 @@ flt[0,0].plot(x, (-clf.coef_[2][0]*x + clf.intercept_[2])/clf.coef_[2][1], color
 #print("clf.intercept_\n",clf.intercept_)
 #print(clf.decision_function(train_x))
 
+#test_t = [1 if train_t[i] !=2 else 2 for i in range(len(train_t))]
+
 poly_svc = svm.SVC(kernel='poly', degree=2 ,gamma='auto',decision_function_shape='ovr')
 poly_svc.fit(train_x, train_t)
-print(poly_svc.dual_coef_)
-#print(poly_svc.support_)
+#print(poly_svc.dual_coef_.shape)
+print(poly_svc.support_)
 print(poly_svc.n_support_)
-print(poly_svc.support_vectors_.shape)
-print(poly_svc.intercept_)
-print()
+print(poly_svc.support_vectors_)
+#print(poly_svc.intercept_.shape)
+#print()
 
-for i in range(len(train_t)):
-    print(train_x[i],poly_svc.support_vectors_[i])
+#for i in range(len(train_t)):
+    #print(train_x[i],poly_svc.support_vectors_[i])
 
 
 
