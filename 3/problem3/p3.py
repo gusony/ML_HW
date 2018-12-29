@@ -1,12 +1,16 @@
 import csv  #read .csv
 import numpy as np
 from numpy.linalg import pinv
+from numpy.linalg import inv
 import matplotlib.pyplot as plt
 from sklearn import svm
 import cv2
 import seaborn as sns; sns.set()
 from scipy.stats import multivariate_normal
 from multiprocessing import Pool
+from multiprocessing import Process
+from multiprocessing import Manager
+
 
 test_k_list = [2]#,3,5]#,20]
 uk_list = []
@@ -50,20 +54,55 @@ def Σk(labels, k):
     Nk(labels,k)
     πk = Nk(labels,k)/labels.shape[0]
 
+def f(i, result, X, μ, Σ):
+    result[i] = sub.T.dot(sub)
 
-'''
+def f2(result, ind, n, K, π, Yn, mu, cov):
+    temp = 0
+    for k in range(K):
+        temp += π[k] * myNfunc(Yn,mu[k], cov[k])
+        #R[:, k] = πk[k] * multivariate_normal.pdf(X, mean=np.array(μ[i]).flatten(), cov=Σ[i])
+        #print('temp=',temp)
+    result[n] = np.log(np.sum(temp))
+
+def myNfunc(Xn, μk, Σk, d=3):
+    a = ( (2*np.pi)**d * np.linalg.det(Σk) ) ** -.5 # exp 前面的分數
+    b = -.5 * (Xn - μk).dot(inv(Σk)).dot((Xn - μk).T) #exp 裡面的值
+    return(a*np.exp(b))
+
+DEBUG = True
+
+######################################################
+# 调试输出函数
+# 由全局变量 DEBUG 控制输出
+######################################################
 def debug(*args, **kwargs):
     global DEBUG
     if DEBUG:
         print(*args, **kwargs)
+
+
+######################################################
+# 第 k 个模型的高斯分布密度函数
+# 每 i 行表示第 i 个样本在各模型中的出现概率
+# 返回一维列表
+######################################################
 def phi(Y, mu_k, cov_k):
     norm = multivariate_normal(mean=mu_k, cov=cov_k)
     return norm.pdf(Y)
-def getExpectation(Y, mu, cov, alpha):
+
+
+######################################################
+# E 步：计算每个模型对样本的响应度
+# Y 为样本矩阵，每个样本一行，只有一个特征时为列向量
+# mu 为均值多维数组，每行表示一个样本各个特征的均值
+# cov 为协方差矩阵的数组，π 为模型响应度数组
+######################################################
+def getExpectation(Y, mu, cov, π):
     # 样本数
     N = Y.shape[0]
     # 模型数
-    K = alpha.shape[0]
+    K = π.shape[0]
 
     # 为避免使用单个高斯模型或样本，导致返回结果的类型不一致
     # 因此要求样本数和模型个数必须大于1
@@ -81,24 +120,30 @@ def getExpectation(Y, mu, cov, alpha):
 
     # 计算每个模型对每个样本的响应度
     for k in range(K):
-        gamma[:, k] = alpha[k] * prob[:, k]
+        gamma[:, k] = π[k] * prob[:, k]
     for i in range(N):
         gamma[i, :] /= np.sum(gamma[i, :])
     return gamma
+
+
+######################################################
+# M 步：迭代模型参数
+# Y 为样本矩阵，gamma 为响应度矩阵
+######################################################
 def maximize(Y, gamma):
-    # 樣本數跟特徵值
+    # 样本数和特征数
     N, D = Y.shape
-    # 模型數
+    # 模型数
     K = gamma.shape[1]
 
-    #初始化參數值
+    #初始化参数值
     mu = np.zeros((K, D))
     cov = []
-    alpha = np.zeros(K)
+    π = np.zeros(K)
 
-    # 更新每個模型的参数
+    # 更新每个模型的参数
     for k in range(K):
-        # 第 k 個模型對所有样本的响应度之和
+        # 第 k 个模型对所有样本的响应度之和
         Nk = np.sum(gamma[:, k])
         # 更新 mu
         # 对每个特征求均值
@@ -109,145 +154,98 @@ def maximize(Y, gamma):
         for i in range(N):
             cov_k += gamma[i, k] * (Y[i] - mu[k]).T * (Y[i] - mu[k]) / Nk
         cov.append(cov_k)
-        # 更新 alpha
-        alpha[k] = Nk / N
+        # 更新 π
+        π[k] = Nk / N
     cov = np.array(cov)
-    return mu, cov, alpha
+    return mu, cov, π
+
+
+######################################################
+# 数据预处理
+# 将所有数据都缩放到 0 和 1 之间
+######################################################
 def scale_data(Y):
+    # 对每一维特征分别进行缩放
     for i in range(Y.shape[1]):
         max_ = Y[:, i].max()
         min_ = Y[:, i].min()
         Y[:, i] = (Y[:, i] - min_) / (max_ - min_)
+    debug("Data scaled.")
     return Y
-def init_params(shape, K):
+
+
+######################################################
+# 初始化模型参数
+# shape 是表示样本规模的二元组，(样本数, 特征数)
+# K 表示模型个数
+######################################################
+def init_params(shape, K, γ, uk):
     N, D = shape
-    mu = np.random.rand(K, D)
+    mu = uk/255 #np.random.rand(K, D)
     cov = np.array([np.eye(D)] * K)
-    alpha = np.array([1.0 / K] * K)
-    return mu, cov, alpha
-def GMM_EM(Y, K, times, flt):
-    Y = scale_data(Y)
-    print(Y)
-    mu, cov, alpha = init_params(Y.shape, K)
+    π = np.sum(γ,axis=0)/np.sum(γ)
+    debug("Parameters initialized.")
+    debug("mu:", mu, "cov:", cov, "π:", π, sep="\n")
+    return mu, cov, π
+
+
+######################################################
+# 高斯混合模型 EM 算法
+# 给定样本矩阵 Y，计算模型参数
+# K 为模型个数
+# times 为迭代次数
+######################################################
+def GMM_EM(init_Y, K, times, γ,uk):
+    Y = scale_data(init_Y)
+    mu, cov, π = init_params(Y.shape, K, γ, uk)
+    log_likelihoods = []
     for i in range(times):
-        print('\ntimes:',i,'\n')
-        gamma = getExpectation(Y, mu, cov, alpha)
+        gamma = getExpectation(Y, mu, cov, π)
+        mu, cov, π = maximize(Y, gamma)
+        #debug("mu:", mu, "cov:", cov, "π:", π, sep="\n")
 
-        mu, cov, alpha = maximize(Y, gamma)
-        pi = [np.sum(gamma[:,i])/118080 for i in range(K)]
-        log_likelihoods = (np.log(np.sum([k*multivariate_normal(mu[i],cov[j]).pdf(X) for k,i,j in zip(pi,range(mu.shape[0]),range(cov.shape[0]))])))
+        for ind in range(int(Y.shape[0]/16)):
+            #print('ind',ind)
+            manager = Manager()
+            ll_list = manager.list([0.]*16)
+            jobs = []
+            log_likelihood = 0
+
+            for n in range(16):
+                p = Process(target=f2, args=(ll_list, ind, n, K, π, Y[ind*n],mu, cov))
+                jobs.append(p)
+                p.start()
+
+            for proc in jobs:
+                proc.join()
+
+            log_likelihood += sum(ll_list)
+        print(log_likelihood)
+        log_likelihoods.append(log_likelihood)
         print(log_likelihoods)
-    return mu, cov, alpha
 
-class GMM:
-
-    def __init__(self, k = 3, eps = 0.0001):
-        self.k = k ## number of clusters
-        self.eps = eps ## threshold to stop `epsilon`
-
-        # All parameters from fitting/learning are kept in a named tuple
-        from collections import namedtuple
-
-    def fit_EM(self, X, max_iters = 1000):
-
-        # n = number of data-points, d = dimension of data points
-        n, d = X.shape
-
-        # randomly choose the starting centroids/means
-        ## as 3 of the points from datasets
-        mu = X[np.random.choice(n, self.k, False), :]
-
-        # initialize the covariance matrices for each gaussians
-        Sigma= [np.eye(d)] * self.k
-
-        # initialize the probabilities/weights for each gaussians
-        w = [1./self.k] * self.k
-
-        # responsibility matrix is initialized to all zeros
-        # we have responsibility for each of n points for eack of k gaussians
-        R = np.zeros((n, self.k))
-
-        ### log_likelihoods
-        log_likelihoods = []
-
-        P = lambda mu, s: np.linalg.det(s) ** -.5 ** (2 * np.pi) ** (-X.shape[1]/2.) \
-                * np.exp(-.5 * np.einsum('ij, ij -> i',\
-                        X - mu, np.dot(np.linalg.inv(s) , (X - mu).T).T ) )
-
-        # Iterate till max_iters iterations
-        while len(log_likelihoods) < max_iters:
-
-            # E - Step
-
-            ## Vectorized implementation of e-step equation to calculate the
-            ## membership for each of k -gaussians
-            for k in range(self.k):
-                R[:, k] = w[k] * P(mu[k], Sigma[k])
-
-            ### Likelihood computation
-            log_likelihood = np.sum(np.log(np.sum(R, axis = 1)))
-
-            log_likelihoods.append(log_likelihood)
-
-            ## Normalize so that the responsibility matrix is row stochastic
-            R = (R.T / np.sum(R, axis = 1)).T
-
-            ## The number of datapoints belonging to each gaussian
-            N_ks = np.sum(R, axis = 0)
+        #     #print('n=',n)
+        #     temp = 0
+        #     for k in range(K):
+        #         # print('k',k)
+        #         # print('πk,',πk[k])
+        #         # print('μ[k],',μ[k])
+        #         # print('Σ[k],',Σ[k])
+        #         # print('myNfunc,',myNfunc(X[n],μ[k], Σ[k]))
+        #         temp += π[k] * myNfunc(Y[n],mu[k], cov[k])
+        #         #R[:, k] = πk[k] * multivariate_normal.pdf(X, mean=np.array(μ[i]).flatten(), cov=Σ[i])
+        #         print('temp=',temp)
+        #     log_likelihood += np.log(np.sum(temp))
+        # print('ll,',log_likelihood)
 
 
-            # M Step
-            ## calculate the new mean and covariance for each gaussian by
-            ## utilizing the new responsibilities
-            for k in range(self.k):
+    #debug("{sep} Result {sep}".format(sep="-" * 20))
+    #debug("mu:", mu, "cov:", cov, "π:", π, sep="\n")
+    #return mu, cov, π
+    return log_likelihoods
 
-                ## means
-                mu[k] = 1. / N_ks[k] * np.sum(R[:, k] * X.T, axis = 1).T
-                x_mu = np.matrix(X - mu[k])
 
-                ## covariances
-                Sigma[k] = np.array(1 / N_ks[k] * np.dot(np.multiply(x_mu.T,  R[:, k]), x_mu))
-
-                ## and finally the probabilities
-                w[k] = 1. / n * N_ks[k]
-            # check for onvergence
-            if len(log_likelihoods) < 2 : continue
-            if np.abs(log_likelihood - log_likelihoods[-2]) < self.eps: break
-
-        ## bind all results together
-        from collections import namedtuple
-        self.params = namedtuple('params', ['mu', 'Sigma', 'w', 'log_likelihoods', 'num_iters'])
-        self.params.mu = mu
-        self.params.Sigma = Sigma
-        self.params.w = w
-        self.params.log_likelihoods = log_likelihoods
-        self.params.num_iters = len(log_likelihoods)
-
-        return self.params
-
-    def plot_log_likelihood(self):
-        import pylab as plt
-        plt.plot(self.params.log_likelihoods)
-        plt.title('Log Likelihood vs iteration plot')
-        plt.xlabel('Iterations')
-        plt.ylabel('log likelihood')
-        plt.show()
-
-    def predict(self, x):
-        p = lambda mu, s : np.linalg.det(s) ** - 0.5 * (2 * np.pi) **\
-                (-len(x)/2) * np.exp( -0.5 * np.dot(x - mu , \
-                        np.dot(np.linalg.inv(s) , x - mu)))
-        probs = np.array([w * p(mu, s) for mu, s, w in \
-            zip(self.params.mu, self.params.Sigma, self.params.w)])
-        return probs/np.sum(probs)
 '''
-
-def f(i, result, X, μ, Σ):
-    result[i] = sub.T.dot(sub)
-
-def f2(i,result, xn, uk, sigmak):
-
-
 class GMM:
 
     def __init__(self, k = 3, eps = 0.0001, max_iters = 1000):
@@ -262,14 +260,15 @@ class GMM:
 
         # n = number of data-points,
         # d = dimension of data points
-        # Nk[k] = number of x belong to k cluster
-
+        # Nk[k] = number of x belong to k cluster # return [53542,64538]
+        # πk = Nk/118080                          # return [0.4534.., 0.54656...]
+        # μ = shape(k,d)                          # return [[34,86,106],[28,72,88]]
         ########################################################################
         #init
         γ = init_γ
         n, d = X.shape
-        Nk = np.sum(init_γ,axis=0) # return [53542,64538]
-        πk = Nk/118080             # return [0.4534.., 0.54656...]
+        Nk = np.sum(init_γ,axis=0)
+        πk = Nk/118080
 
         μ = [ (np.matrix(γ.T[0].dot(X))/Nk[i]).flatten().tolist()[0] for i in range(self.k)]
         μ = np.array(μ, dtype=np.int64) # return [[34,86,106],[28,72,88]]
@@ -278,42 +277,38 @@ class GMM:
         Σ= [np.eye(d)] * self.k
         print('Σ',Σ[0].shape)
 
-        '''
-        # responsibility matrix is initialized to all zeros
-        # we have responsibility for each of n points for eack of k gaussians
-        γ = init_γ#np.zeros((n, self.k))
 
         # log_likelihoods
         log_likelihoods = []
         R = np.zeros((n, self.k))
-        '''
 
-        '''
+
+
         P = lambda μ, s: np.linalg.det(s) ** -.5 ** (2 * np.pi) ** (-X.shape[1]/2.) \
-                * np.exp(-.5 * np.einsum('ij, ij -> i',\
-                        X - μ, np.dot(np.linalg.inv(s) , (X - μ).T).T ) )
-        '''
+                * np.exp(-.5 * np.einsum('ij, ij -> i', X - μ, np.dot(pinv(s) , (X - μ).T).T ) )
+
 
         ########################################################################
         # Iterate till max_iters iterations
         while len(log_likelihoods) < max_iters:
 
             # E - Step
-            for n in range(X.shape[1]):
-            γ
-
-            ## Vectorized implementation of e-step equation to calculate the
-            ## membership for each of k -gaussians
-            # for k in range(self.k):
-            #     R[:, k] = πk[k] * P(μ[k], Σ[k])
-            #     print('P',P(μ[k], Σ[k]))
-            #print('scipy', multivariate_normal.pdf(x, mean=[0, 1], cov=[5, 2]))
 
             log_likelihood = 0
-            ### Likelihood computation
-            for n in range(X.shape[0]) :
-                log_likelihood += np.sum(np.log( [ πk[i]*multivariate_normal.pdf(X[n], mean=np.array(μ[i]).flatten(), cov=Σ[i]) for i in range(self.k) ]))
-            print('log_likelihood',log_likelihood)
+            for n in range(X.shape[0]):
+                print('n=',n)
+                temp = 0
+                for k in range(self.k):
+                    # print('k',k)
+                    # print('πk,',πk[k])
+                    # print('μ[k],',μ[k])
+                    # print('Σ[k],',Σ[k])
+                    # print('myNfunc,',myNfunc(X[n],μ[k], Σ[k]))
+                    temp += πk[k] * myNfunc(X[n],μ[k], Σ[k])
+                    #R[:, k] = πk[k] * multivariate_normal.pdf(X, mean=np.array(μ[i]).flatten(), cov=Σ[i])
+                    print('temp=',temp)
+                log_likelihood += np.log(np.sum(temp))
+            print('ll,',log_likelihood)
             log_likelihoods.append(log_likelihood)
 
 
@@ -368,16 +363,15 @@ class GMM:
         probs = np.array([πk * p(μ, s) for μ, s, πk in \
             zip(self.params.μ, self.params.Σ, self.params.πk)])
         return probs/np.sum(probs)
-
+'''
 #readfile
 img = cv2.imread('hw3.jpg')
 matY = np.matrix(img.reshape(img.shape[0]*img.shape[1],img.shape[2]),dtype=np.float64)
 f,flt = plt.subplots(4)
 i=0
 for k_num in test_k_list:
-    print( 'k_num=',k_num)
+    print('k_num=',k_num)
     labels, uk, γ= keans(img.reshape(img.shape[0]*img.shape[1],img.shape[2]), k_num)
-    print('γ=\n',γ,γ.shape,'\n')
     uk_list.append(uk)
     new_img = np.array([uk[x] for x in labels])
     new_img = new_img.reshape(246,480,3)
@@ -385,19 +379,19 @@ for k_num in test_k_list:
     #P = lambda μ, s: np.linalg.det(s) ** -.5 ** (2 * np.pi) ** (-X.shape[1]/2.) * np.exp(-.5 * np.einsum('ij, ij -> i', X - μ, np.dot(np.linalg.inv(s) , (X - mu).T).T ) )
     #log_likelihood = np.sum(np.log(np.sum(γ, axis = 1)))
 
-    k = 2
-    max_iters = 10
-    eps = 0.000001
-    gmm = GMM(k, eps, max_iters)
-    params = gmm.fit_EM(matY,γ)
+    # k = 2
+    # max_iters = 1
+    # eps = 0.000001
+    # gmm = GMM(k, eps, max_iters)
+    # params = gmm.fit_EM(matY,γ)
 
-    #mu, cov, alpha = GMM_EM(matY, k_num, 5, flt[i])
+    mu, cov, π = GMM_EM(matY, k_num, 3, γ,uk)
+    print()
     #print(Nk(labels, 1))
     #cv2.imshow('test',new_img)
     #cv2.waitKey(0)
     #cv2.destroyAllWindows()
 
     #cv2.imwrite("k="+str(k_num)+".jpg", new_img)
-    i+=1
-#print(uk_list[2])
-plt.show()
+
+#plt.show()
