@@ -56,7 +56,7 @@ def Σk(labels, k):
 
 def f(i, result, X, μ, Σ):
     result[i] = sub.T.dot(sub)
-
+'''
 def f2(result, ind, n, K, π, Yn, mu, cov):
     temp = 0
     for k in range(K):
@@ -69,35 +69,18 @@ def myNfunc(Xn, μk, Σk, d=3):
     a = ( (2*np.pi)**d * np.linalg.det(Σk) ) ** -.5 # exp 前面的分數
     b = -.5 * (Xn - μk).dot(inv(Σk)).dot((Xn - μk).T) #exp 裡面的值
     return(a*np.exp(b))
-
+'''
 DEBUG = True
 
-######################################################
-# 调试输出函数
-# 由全局变量 DEBUG 控制输出
-######################################################
 def debug(*args, **kwargs):
     global DEBUG
     if DEBUG:
         print(*args, **kwargs)
 
-
-######################################################
-# 第 k 个模型的高斯分布密度函数
-# 每 i 行表示第 i 个样本在各模型中的出现概率
-# 返回一维列表
-######################################################
 def phi(Y, mu_k, cov_k):
     norm = multivariate_normal(mean=mu_k, cov=cov_k)
     return norm.pdf(Y)
 
-
-######################################################
-# E 步：计算每个模型对样本的响应度
-# Y 为样本矩阵，每个样本一行，只有一个特征时为列向量
-# mu 为均值多维数组，每行表示一个样本各个特征的均值
-# cov 为协方差矩阵的数组，π 为模型响应度数组
-######################################################
 def getExpectation(Y, mu, cov, π):
     # 样本数
     N = Y.shape[0]
@@ -125,11 +108,6 @@ def getExpectation(Y, mu, cov, π):
         gamma[i, :] /= np.sum(gamma[i, :])
     return gamma
 
-
-######################################################
-# M 步：迭代模型参数
-# Y 为样本矩阵，gamma 为响应度矩阵
-######################################################
 def maximize(Y, gamma):
     # 样本数和特征数
     N, D = Y.shape
@@ -159,11 +137,6 @@ def maximize(Y, gamma):
     cov = np.array(cov)
     return mu, cov, π
 
-
-######################################################
-# 数据预处理
-# 将所有数据都缩放到 0 和 1 之间
-######################################################
 def scale_data(Y):
     # 对每一维特征分别进行缩放
     for i in range(Y.shape[1]):
@@ -173,12 +146,6 @@ def scale_data(Y):
     debug("Data scaled.")
     return Y
 
-
-######################################################
-# 初始化模型参数
-# shape 是表示样本规模的二元组，(样本数, 特征数)
-# K 表示模型个数
-######################################################
 def init_params(shape, K, γ, uk):
     N, D = shape
     mu = uk/255 #np.random.rand(K, D)
@@ -188,13 +155,6 @@ def init_params(shape, K, γ, uk):
     debug("mu:", mu, "cov:", cov, "π:", π, sep="\n")
     return mu, cov, π
 
-
-######################################################
-# 高斯混合模型 EM 算法
-# 给定样本矩阵 Y，计算模型参数
-# K 为模型个数
-# times 为迭代次数
-######################################################
 def GMM_EM(init_Y, K, times, γ,uk):
     Y = scale_data(init_Y)
     mu, cov, π = init_params(Y.shape, K, γ, uk)
@@ -204,39 +164,20 @@ def GMM_EM(init_Y, K, times, γ,uk):
         mu, cov, π = maximize(Y, gamma)
         #debug("mu:", mu, "cov:", cov, "π:", π, sep="\n")
 
-        for ind in range(int(Y.shape[0]/16)):
-            #print('ind',ind)
-            manager = Manager()
-            ll_list = manager.list([0.]*16)
-            jobs = []
-            log_likelihood = 0
-
-            for n in range(16):
-                p = Process(target=f2, args=(ll_list, ind, n, K, π, Y[ind*n],mu, cov))
-                jobs.append(p)
-                p.start()
-
-            for proc in jobs:
-                proc.join()
-
-            log_likelihood += sum(ll_list)
+        R = []
+        for k in range(K):
+            ymuk = Y - mu[k]
+            a = ((2*np.pi)**Y.shape[1] * np.linalg.det(cov[k])) ** -.5
+            R.append(np.einsum('ij,ji->i',ymuk.dot(cov[k]), ymuk.T ).tolist())
+        R = np.array(R)
+        a = np.array(a)
+        R = np.exp(-.5 * R.T)
+        print(a.shape,a)
+        #R =
+        print(R.shape,R)
+        log_likelihood = np.sum(np.log(a*R))
         print(log_likelihood)
-        log_likelihoods.append(log_likelihood)
-        print(log_likelihoods)
 
-        #     #print('n=',n)
-        #     temp = 0
-        #     for k in range(K):
-        #         # print('k',k)
-        #         # print('πk,',πk[k])
-        #         # print('μ[k],',μ[k])
-        #         # print('Σ[k],',Σ[k])
-        #         # print('myNfunc,',myNfunc(X[n],μ[k], Σ[k]))
-        #         temp += π[k] * myNfunc(Y[n],mu[k], cov[k])
-        #         #R[:, k] = πk[k] * multivariate_normal.pdf(X, mean=np.array(μ[i]).flatten(), cov=Σ[i])
-        #         print('temp=',temp)
-        #     log_likelihood += np.log(np.sum(temp))
-        # print('ll,',log_likelihood)
 
 
     #debug("{sep} Result {sep}".format(sep="-" * 20))
@@ -245,125 +186,6 @@ def GMM_EM(init_Y, K, times, γ,uk):
     return log_likelihoods
 
 
-'''
-class GMM:
-
-    def __init__(self, k = 3, eps = 0.0001, max_iters = 1000):
-        self.k = k ## number of clusters
-        self.eps = eps ## threshold to stop `epsilon`
-        self.max_iters = max_iters
-
-        # All parameters from fitting/learning are kept in a named tuple
-        from collections import namedtuple
-
-    def fit_EM(self, X, init_γ):
-
-        # n = number of data-points,
-        # d = dimension of data points
-        # Nk[k] = number of x belong to k cluster # return [53542,64538]
-        # πk = Nk/118080                          # return [0.4534.., 0.54656...]
-        # μ = shape(k,d)                          # return [[34,86,106],[28,72,88]]
-        ########################################################################
-        #init
-        γ = init_γ
-        n, d = X.shape
-        Nk = np.sum(init_γ,axis=0)
-        πk = Nk/118080
-
-        μ = [ (np.matrix(γ.T[0].dot(X))/Nk[i]).flatten().tolist()[0] for i in range(self.k)]
-        μ = np.array(μ, dtype=np.int64) # return [[34,86,106],[28,72,88]]
-
-        # initialize the covariance matrices for each gaussians
-        Σ= [np.eye(d)] * self.k
-        print('Σ',Σ[0].shape)
-
-
-        # log_likelihoods
-        log_likelihoods = []
-        R = np.zeros((n, self.k))
-
-
-
-        P = lambda μ, s: np.linalg.det(s) ** -.5 ** (2 * np.pi) ** (-X.shape[1]/2.) \
-                * np.exp(-.5 * np.einsum('ij, ij -> i', X - μ, np.dot(pinv(s) , (X - μ).T).T ) )
-
-
-        ########################################################################
-        # Iterate till max_iters iterations
-        while len(log_likelihoods) < max_iters:
-
-            # E - Step
-
-            log_likelihood = 0
-            for n in range(X.shape[0]):
-                print('n=',n)
-                temp = 0
-                for k in range(self.k):
-                    # print('k',k)
-                    # print('πk,',πk[k])
-                    # print('μ[k],',μ[k])
-                    # print('Σ[k],',Σ[k])
-                    # print('myNfunc,',myNfunc(X[n],μ[k], Σ[k]))
-                    temp += πk[k] * myNfunc(X[n],μ[k], Σ[k])
-                    #R[:, k] = πk[k] * multivariate_normal.pdf(X, mean=np.array(μ[i]).flatten(), cov=Σ[i])
-                    print('temp=',temp)
-                log_likelihood += np.log(np.sum(temp))
-            print('ll,',log_likelihood)
-            log_likelihoods.append(log_likelihood)
-
-
-            ## Normalize so that the responsibility matrix is row stochastic
-            #γ = (γ.T / np.sum(γ, axis = 1)).T
-
-            ## The number of datapoints belonging to each gaussian
-            N_ks = np.sum(γ, axis = 0)
-
-
-            # M Step
-            ## calculate the new mean and covariance for each gaussian by
-            ## utilizing the new responsibilities
-            for k in range(self.k):
-
-                ## means
-                μ[k] = 1. / Nk[k] * np.sum(γ[:, k] * X.T, axis = 1).T
-                x_μ = np.matrix(X - μ[k])
-
-                ## covariances
-                Σ[k] = np.array(1 / N_ks[k] * np.dot(np.multiply(x_μ.T,  γ[:, k]), x_μ))
-
-                ## and finally the probabilities
-                πk[k] = 1. / n * N_ks[k]
-            # check for onvergence
-            if len(log_likelihoods) < 2 : continue
-            if np.abs(log_likelihood - log_likelihoods[-2]) < self.eps: break
-
-        ## bind all results together
-        from collections import namedtuple
-        self.params = namedtuple('params', ['μ', 'Σ', 'πk', 'log_likelihoods', 'num_iters'])
-        self.params.μ = μ
-        self.params.Σ = Σ
-        self.params.πk = πk
-        self.params.log_likelihoods = log_likelihoods
-        self.params.num_iters = len(log_likelihoods)
-
-        return self.params
-
-    def plot_log_likelihood(self):
-        import pylab as plt
-        plt.plot(self.params.log_likelihoods)
-        plt.title('Log Likelihood vs iteration plot')
-        plt.xlabel('Iterations')
-        plt.ylabel('log likelihood')
-        plt.show()
-
-    def predict(self, x):
-        p = lambda μ, s : np.linalg.det(s) ** - 0.5 * (2 * np.pi) **\
-                (-len(x)/2) * np.exp( -0.5 * np.dot(x - μ , \
-                        np.dot(np.linalg.inv(s) , x - μ)))
-        probs = np.array([πk * p(μ, s) for μ, s, πk in \
-            zip(self.params.μ, self.params.Σ, self.params.πk)])
-        return probs/np.sum(probs)
-'''
 #readfile
 img = cv2.imread('hw3.jpg')
 matY = np.matrix(img.reshape(img.shape[0]*img.shape[1],img.shape[2]),dtype=np.float64)
