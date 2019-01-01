@@ -12,7 +12,7 @@ from multiprocessing import Process
 from multiprocessing import Manager
 
 
-test_k_list = [2]#,3,5]#,20]
+test_k_list = [2,3,5]#,20]
 uk_list = []
 eps = 0.000001
 max_interaction = 20
@@ -151,8 +151,8 @@ def init_params(shape, K, γ, uk):
     mu = uk/255 #np.random.rand(K, D)
     cov = np.array([np.eye(D)] * K)
     π = np.sum(γ,axis=0)/np.sum(γ)
-    debug("Parameters initialized.")
-    debug("mu:", mu, "cov:", cov, "π:", π, sep="\n")
+    #debug("Parameters initialized.")
+    #debug("mu:", mu, "cov:", cov, "π:", π, sep="\n")
     return mu, cov, π
 
 def GMM_EM(init_Y, K, times, γ,uk):
@@ -167,16 +167,14 @@ def GMM_EM(init_Y, K, times, γ,uk):
         R = []
         for k in range(K):
             ymuk = Y - mu[k]
+            mat_dia = np.einsum('ij,ji->i',ymuk.dot(cov[k]), ymuk.T )
             a = ((2*np.pi)**Y.shape[1] * np.linalg.det(cov[k])) ** -.5
-            R.append(np.einsum('ij,ji->i',ymuk.dot(cov[k]), ymuk.T ).tolist())
+
+            R.append(π[k] * a * np.exp(-.5 * mat_dia) )
         R = np.array(R)
-        a = np.array(a)
-        R = np.exp(-.5 * R.T)
-        print(a.shape,a)
-        #R =
-        print(R.shape,R)
-        log_likelihood = np.sum(np.log(a*R))
+        log_likelihood = np.sum(np.log(R))
         print(log_likelihood)
+        log_likelihoods.append(log_likelihood)
 
 
 
@@ -206,9 +204,11 @@ for k_num in test_k_list:
     # eps = 0.000001
     # gmm = GMM(k, eps, max_iters)
     # params = gmm.fit_EM(matY,γ)
+    log_likelihoods = GMM_EM(matY, k_num, 10, γ,uk)
+    xaxis = np.arange(1,11)
+    flt[test_k_list.index( k_num )].scatter(xaxis, log_likelihoods)
 
-    mu, cov, π = GMM_EM(matY, k_num, 3, γ,uk)
-    print()
+
     #print(Nk(labels, 1))
     #cv2.imshow('test',new_img)
     #cv2.waitKey(0)
@@ -216,4 +216,4 @@ for k_num in test_k_list:
 
     #cv2.imwrite("k="+str(k_num)+".jpg", new_img)
 
-#plt.show()
+plt.show()
