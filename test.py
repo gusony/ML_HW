@@ -1,32 +1,57 @@
 import csv  #read .csv
 import numpy as np
-from numpy.linalg import pinv
+#from numpy.linalg import pinv
 import matplotlib.pyplot as plt
-from sklearn import svm
-import seaborn as sns; sns.set()
+#from sklearn import svm
+#import seaborn as sns; sns.set()
+from multiprocessing import Pool
+from multiprocessing import Process
+from multiprocessing import Manager
 
 
-data = [[1,2],[4,5],[6,7],[8,9]]
-a = np.array([-3,-4])
-b = np.array([5,6])
-print(sum(a**2))
-#print(np.random.randint(len(data)))
+def f(i, result, x, uk):
+    result[i] = sub.T.dot(sub)
+    print(result[i])
 
-#a  = 10
+if __name__ == '__main__':
+    '''
+    data = np.matrix([[1,2,3],[4,5,6]])
+    print(np.array(data[1]).flatten())
+    '''
 
-#while(a++ < 10)
-#    print(a)
-# from sklearn.datasets.samples_generator import make_blobs
-# X, y_true = make_blobs(n_samples=400, centers=4,
-#                        cluster_std=0.60, random_state=0)
 
-# X = X[:, ::-1] # flip axes for better plotting
-# print(X)
+    #data1 = np.matrix([[1,7,2],[1,3,5]])
+    #print(np.sum(data1,axis=0))
+    #print(np.matrix(data1/2, dtype=np.int64).tolist())
 
-# from sklearn.cluster import KMeans
-# kmeans = KMeans(4, random_state=0)
-# labels = kmeans.fit(X).predict(X)
-# col = ['b' if labels[i] == 0 else 'r' for i in range(labels.shape[0])]
-# print(X.shape,labels.shape)
-# plt.scatter(X[:, 0], X[:, 1], c=col)#, s=40, cmap='viridis');
-# plt.show()
+
+    # data2 = np.matrix([[1,3,5],[2,4,6]])
+
+    # print(data1[0])
+    # print(data2[1])
+    # manager = Manager()
+    # jobs = []
+    # result = manager.list([[],[]])
+    # for i in range(2):
+    #     p = Process(target=f, args=(i, result, data1[i,:], data2[i,:]))
+    #     jobs.append(p)
+    #     p.start()
+
+    # for proc in jobs:
+    #     proc.join()
+
+
+
+    #print(f(data1[0],data1[1]))
+    #print('result',result)
+    #total = np.matrix([0,0,0])
+    #for i in range(len(data)):
+    #    total += data[i]
+    #print(total )
+
+
+
+##########################
+#good use
+
+#data1.append(np.random.randint(5, size=(3)).tolist())
