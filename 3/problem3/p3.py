@@ -10,6 +10,7 @@ from scipy.stats import multivariate_normal
 from multiprocessing import Pool
 from multiprocessing import Process
 from multiprocessing import Manager
+from datetime import datetime as dt
 
 
 test_k_list = [2,3,5]#,20]
@@ -81,61 +82,55 @@ def phi(Y, mu_k, cov_k):
     norm = multivariate_normal(mean=mu_k, cov=cov_k)
     return norm.pdf(Y)
 
-def getExpectation(Y, mu, cov, π):
-    # 样本数
+def getExpectation(Y, μ, cov, π):
     N = Y.shape[0]
-    # 模型数
     K = π.shape[0]
 
-    # 为避免使用单个高斯模型或样本，导致返回结果的类型不一致
-    # 因此要求样本数和模型个数必须大于1
     assert N > 1, "There must be more than one sample!"
     assert K > 1, "There must be more than one gaussian model!"
 
     # 响应度矩阵，行对应样本，列对应响应度
-    gamma = np.mat(np.zeros((N, K)))
+    γ = np.mat(np.zeros((N, K)))
 
     # 计算各模型中所有样本出现的概率，行对应样本，列对应模型
     prob = np.zeros((N, K))
     for k in range(K):
-        prob[:, k] = phi(Y, mu[k], cov[k])
+        prob[:, k] = phi(Y, μ[k], cov[k])
     prob = np.mat(prob)
+
 
     # 计算每个模型对每个样本的响应度
     for k in range(K):
-        gamma[:, k] = π[k] * prob[:, k]
+        γ[:, k] = π[k] * prob[:, k]
     for i in range(N):
-        gamma[i, :] /= np.sum(gamma[i, :])
-    return gamma
+        γ[i, :] /= np.sum(γ[i, :])
+    return γ
 
-def maximize(Y, gamma):
-    # 样本数和特征数
+def maximize(Y, γ):
     N, D = Y.shape
-    # 模型数
-    K = gamma.shape[1]
+    K = γ.shape[1]
 
     #初始化参数值
-    mu = np.zeros((K, D))
+    μ = np.zeros((K, D))
     cov = []
     π = np.zeros(K)
+    Nk = np.array(np.sum(γ, axis=0)).reshape(K)
 
     # 更新每个模型的参数
     for k in range(K):
-        # 第 k 个模型对所有样本的响应度之和
-        Nk = np.sum(gamma[:, k])
-        # 更新 mu
-        # 对每个特征求均值
-        for d in range(D):
-            mu[k, d] = np.sum(np.multiply(gamma[:, k], Y[:, d])) / Nk
+        # 更新 μ
+        μ[k,:] = np.sum(γ[:, k].T.dot(Y), axis=0) / Nk[k]
+
         # 更新 cov
         cov_k = np.mat(np.zeros((D, D)))
-        for i in range(N):
-            cov_k += gamma[i, k] * (Y[i] - mu[k]).T * (Y[i] - mu[k]) / Nk
+        ysubuk  = Y - μ[k]# y subtract u[k]
+        a = np.mat(np.array(γ[:,k])*np.array(ysubuk))
+        cov_k = ( a.T.dot(ysubuk)/Nk[k])
         cov.append(cov_k)
         # 更新 π
-        π[k] = Nk / N
+        π[k] = Nk[k] / N
     cov = np.array(cov)
-    return mu, cov, π
+    return μ, cov, π
 
 def scale_data(Y):
     # 对每一维特征分别进行缩放
@@ -148,32 +143,36 @@ def scale_data(Y):
 
 def init_params(shape, K, γ, uk):
     N, D = shape
-    mu = uk/255 #np.random.rand(K, D)
+    μ = uk/255 #np.random.rand(K, D)
     cov = np.array([np.eye(D)] * K)
     π = np.sum(γ,axis=0)/np.sum(γ)
     #debug("Parameters initialized.")
     #debug("mu:", mu, "cov:", cov, "π:", π, sep="\n")
-    return mu, cov, π
+    return μ, cov, π
 
 def GMM_EM(init_Y, K, times, γ,uk):
     Y = scale_data(init_Y)
-    mu, cov, π = init_params(Y.shape, K, γ, uk)
+    μ, cov, π = init_params(Y.shape, K, γ, uk)
     log_likelihoods = []
     for i in range(times):
-        gamma = getExpectation(Y, mu, cov, π)
-        mu, cov, π = maximize(Y, gamma)
+        a = dt.now()
+        γ = getExpectation(Y, μ, cov, π)
+        print('getExpectation time',dt.now() - a)
+        a = dt.now()
+        μ, cov, π = maximize(Y, γ)
         #debug("mu:", mu, "cov:", cov, "π:", π, sep="\n")
+        print('maximize time',dt.now() - a)
 
         R = []
         for k in range(K):
-            ymuk = Y - mu[k]
+            ymuk = Y - μ[k]
             mat_dia = np.einsum('ij,ji->i',ymuk.dot(cov[k]), ymuk.T )
             a = ((2*np.pi)**Y.shape[1] * np.linalg.det(cov[k])) ** -.5
 
             R.append(π[k] * a * np.exp(-.5 * mat_dia) )
         R = np.array(R)
         log_likelihood = np.sum(np.log(R))
-        print(log_likelihood)
+        print('log_likelihood:',log_likelihood)
         log_likelihoods.append(log_likelihood)
 
 
@@ -187,8 +186,8 @@ def GMM_EM(init_Y, K, times, γ,uk):
 #readfile
 img = cv2.imread('hw3.jpg')
 matY = np.matrix(img.reshape(img.shape[0]*img.shape[1],img.shape[2]),dtype=np.float64)
-f,flt = plt.subplots(4)
-i=0
+f,flt = plt.subplots(4,sharex=True, sharey=True)
+xaxis = np.arange(1,max_interaction+1)
 for k_num in test_k_list:
     print('k_num=',k_num)
     labels, uk, γ= keans(img.reshape(img.shape[0]*img.shape[1],img.shape[2]), k_num)
@@ -196,16 +195,12 @@ for k_num in test_k_list:
     new_img = np.array([uk[x] for x in labels])
     new_img = new_img.reshape(246,480,3)
 
-    #P = lambda μ, s: np.linalg.det(s) ** -.5 ** (2 * np.pi) ** (-X.shape[1]/2.) * np.exp(-.5 * np.einsum('ij, ij -> i', X - μ, np.dot(np.linalg.inv(s) , (X - mu).T).T ) )
-    #log_likelihood = np.sum(np.log(np.sum(γ, axis = 1)))
 
-    # k = 2
-    # max_iters = 1
+
     # eps = 0.000001
     # gmm = GMM(k, eps, max_iters)
     # params = gmm.fit_EM(matY,γ)
-    log_likelihoods = GMM_EM(matY, k_num, 10, γ,uk)
-    xaxis = np.arange(1,11)
+    log_likelihoods = GMM_EM(matY, k_num, max_interaction, γ,uk)
     flt[test_k_list.index( k_num )].scatter(xaxis, log_likelihoods)
 
 
