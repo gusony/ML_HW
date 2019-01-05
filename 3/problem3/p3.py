@@ -13,10 +13,10 @@ from multiprocessing import Manager
 from datetime import datetime as dt
 
 
-test_k_list = [2,3,5]#,20]
+test_k_list = [2,3,5,20]
 uk_list = []
-eps = 0.000001
-max_interaction = 20
+eps = 0.00001
+max_interaction = 100
 
 
 #input data, 2D [n data, features].
@@ -57,20 +57,7 @@ def Σk(labels, k):
 
 def f(i, result, X, μ, Σ):
     result[i] = sub.T.dot(sub)
-'''
-def f2(result, ind, n, K, π, Yn, mu, cov):
-    temp = 0
-    for k in range(K):
-        temp += π[k] * myNfunc(Yn,mu[k], cov[k])
-        #R[:, k] = πk[k] * multivariate_normal.pdf(X, mean=np.array(μ[i]).flatten(), cov=Σ[i])
-        #print('temp=',temp)
-    result[n] = np.log(np.sum(temp))
 
-def myNfunc(Xn, μk, Σk, d=3):
-    a = ( (2*np.pi)**d * np.linalg.det(Σk) ) ** -.5 # exp 前面的分數
-    b = -.5 * (Xn - μk).dot(inv(Σk)).dot((Xn - μk).T) #exp 裡面的值
-    return(a*np.exp(b))
-'''
 DEBUG = True
 
 def debug(*args, **kwargs):
@@ -79,6 +66,8 @@ def debug(*args, **kwargs):
         print(*args, **kwargs)
 
 def phi(Y, mu_k, cov_k):
+    if np.linalg.det(cov_k) < 10**-20:
+        cov_k += np.eye(Y.shape[1])*0.0000001
     norm = multivariate_normal(mean=mu_k, cov=cov_k)
     return norm.pdf(Y)
 
@@ -89,21 +78,18 @@ def getExpectation(Y, μ, cov, π):
     assert N > 1, "There must be more than one sample!"
     assert K > 1, "There must be more than one gaussian model!"
 
-    # 响应度矩阵，行对应样本，列对应响应度
     γ = np.mat(np.zeros((N, K)))
 
-    # 计算各模型中所有样本出现的概率，行对应样本，列对应模型
     prob = np.zeros((N, K))
     for k in range(K):
         prob[:, k] = phi(Y, μ[k], cov[k])
     prob = np.mat(prob)
 
 
-    # 计算每个模型对每个样本的响应度
     for k in range(K):
         γ[:, k] = π[k] * prob[:, k]
-    for i in range(N):
-        γ[i, :] /= np.sum(γ[i, :])
+    γ = γ / np.array(np.sum(γ, axis=1,dtype=np.float64))
+
     return γ
 
 def maximize(Y, γ):
@@ -154,14 +140,11 @@ def GMM_EM(init_Y, K, times, γ,uk):
     Y = scale_data(init_Y)
     μ, cov, π = init_params(Y.shape, K, γ, uk)
     log_likelihoods = []
+    old_ll = 0 #old log likelihood
     for i in range(times):
-        a = dt.now()
         γ = getExpectation(Y, μ, cov, π)
-        print('getExpectation time',dt.now() - a)
-        a = dt.now()
         μ, cov, π = maximize(Y, γ)
-        #debug("mu:", mu, "cov:", cov, "π:", π, sep="\n")
-        print('maximize time',dt.now() - a)
+
 
         R = []
         for k in range(K):
@@ -172,22 +155,22 @@ def GMM_EM(init_Y, K, times, γ,uk):
             R.append(π[k] * a * np.exp(-.5 * mat_dia) )
         R = np.array(R)
         log_likelihood = np.sum(np.log(R))
-        print('log_likelihood:',log_likelihood)
-        log_likelihoods.append(log_likelihood)
+        if np.abs(log_likelihood - old_ll)/old_ll < eps:
+            break
+        else:
+            old_ll = log_likelihood
+            print('log_likelihood:',log_likelihood)
+            log_likelihoods.append(log_likelihood)
 
 
-
-    #debug("{sep} Result {sep}".format(sep="-" * 20))
-    #debug("mu:", mu, "cov:", cov, "π:", π, sep="\n")
-    #return mu, cov, π
-    return log_likelihoods
+    return (np.array(log_likelihoods)/Y.shape[0]).tolist()
 
 
 #readfile
 img = cv2.imread('hw3.jpg')
 matY = np.matrix(img.reshape(img.shape[0]*img.shape[1],img.shape[2]),dtype=np.float64)
 f,flt = plt.subplots(4,sharex=True, sharey=True)
-xaxis = np.arange(1,max_interaction+1)
+
 for k_num in test_k_list:
     print('k_num=',k_num)
     labels, uk, γ= keans(img.reshape(img.shape[0]*img.shape[1],img.shape[2]), k_num)
@@ -197,18 +180,16 @@ for k_num in test_k_list:
 
 
 
-    # eps = 0.000001
-    # gmm = GMM(k, eps, max_iters)
-    # params = gmm.fit_EM(matY,γ)
     log_likelihoods = GMM_EM(matY, k_num, max_interaction, γ,uk)
-    flt[test_k_list.index( k_num )].scatter(xaxis, log_likelihoods)
+    xaxis = np.arange(1,len(log_likelihoods)+1)
+    flt[test_k_list.index( k_num )].set_title('k='+str(k_num))
+    flt[test_k_list.index( k_num )].plot(xaxis, log_likelihoods)
 
 
     #print(Nk(labels, 1))
     #cv2.imshow('test',new_img)
     #cv2.waitKey(0)
     #cv2.destroyAllWindows()
-
-    #cv2.imwrite("k="+str(k_num)+".jpg", new_img)
-
-plt.show()
+    cv2.imwrite("k="+str(k_num)+".jpg", new_img)
+flt.savefig('log_likelihood.jpg')
+#plt.show()
