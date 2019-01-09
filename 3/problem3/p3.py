@@ -102,7 +102,7 @@ def maximize(Y, γ):
     π = np.zeros(K)
     Nk = np.array(np.sum(γ, axis=0)).reshape(K)
 
-    # 更新每个模型的参数
+
     for k in range(K):
         # 更新 μ
         μ[k,:] = np.sum(γ[:, k].T.dot(Y), axis=0) / Nk[k]
@@ -119,7 +119,6 @@ def maximize(Y, γ):
     return μ, cov, π
 
 def scale_data(Y):
-    # 对每一维特征分别进行缩放
     for i in range(Y.shape[1]):
         max_ = Y[:, i].max()
         min_ = Y[:, i].min()
@@ -132,8 +131,6 @@ def init_params(shape, K, γ, uk):
     μ = uk/255 #np.random.rand(K, D)
     cov = np.array([np.eye(D)] * K)
     π = np.sum(γ,axis=0)/np.sum(γ)
-    #debug("Parameters initialized.")
-    #debug("mu:", mu, "cov:", cov, "π:", π, sep="\n")
     return μ, cov, π
 
 def GMM_EM(init_Y, K, times, γ,uk):
